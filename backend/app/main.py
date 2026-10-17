@@ -23,6 +23,15 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
+
+@app.middleware("http")
+async def log_requests(request, call_next):
+    print(f"[YTVidMate API] >>> {request.method} {request.url.path}")
+    response = await call_next(request)
+    print(f"[YTVidMate API] <<< {request.method} {request.url.path} -> {response.status_code}")
+    return response
+
+
 app.include_router(api_v1_router)
 
 

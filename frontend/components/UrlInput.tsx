@@ -159,6 +159,13 @@ export function UrlInput({ onFetch, isLoading }: UrlInputProps) {
         </button>
       </form>
 
+      {isLoading && (
+        <div className="mt-3 p-3 rounded-lg border border-primary/20 bg-primary/5 text-primary text-xs font-semibold flex items-center justify-center gap-2 animate-pulse text-center">
+          <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+          <span>Analyzing link and extracting available qualities from server...</span>
+        </div>
+      )}
+
       {feedbackNotice && (
         <p className="mt-2 text-xs text-amber-600 dark:text-amber-400 font-medium text-center animate-fade-in">
           {feedbackNotice}

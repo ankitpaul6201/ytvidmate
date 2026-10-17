@@ -33,17 +33,21 @@ export function getApiBaseUrl(): string {
   if (process.env.NEXT_PUBLIC_API_BASE_URL) {
     return process.env.NEXT_PUBLIC_API_BASE_URL;
   }
+  // In the browser, use relative paths so Next.js rewrites proxy to backend with zero CORS issues
   if (typeof window !== "undefined") {
-    return `${window.location.protocol}//${window.location.hostname}:8000`;
+    return "";
   }
-  return "http://localhost:8000";
+  return "http://127.0.0.1:8000";
 }
 
 export async function fetchMediaInfo(url: string): Promise<MediaInfoResponse> {
   const baseUrl = getApiBaseUrl();
+  const endpoint = `${baseUrl}/api/v1/info`;
+  console.log("[YTVidMate] Requesting video details for:", url, "via:", endpoint || "/api/v1/info");
+
   let res: Response;
   try {
-    res = await fetch(`${baseUrl}/api/v1/info`, {
+    res = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -51,8 +55,9 @@ export async function fetchMediaInfo(url: string): Promise<MediaInfoResponse> {
       body: JSON.stringify({ url }),
     });
   } catch (err: unknown) {
+    console.error("[YTVidMate] Network connection failed:", err);
     throw new Error(
-      `Cannot connect to backend server at ${baseUrl}. Please make sure the FastAPI backend is running on port 8000.`
+      `Cannot connect to backend server. Please verify that FastAPI is running on port 8000.`
     );
   }
 
@@ -64,10 +69,13 @@ export async function fetchMediaInfo(url: string): Promise<MediaInfoResponse> {
     } catch {
       // fallback
     }
+    console.warn("[YTVidMate] Backend error:", errorMsg);
     throw new Error(errorMsg);
   }
 
-  return res.json();
+  const data = await res.json();
+  console.log("[YTVidMate] Successfully fetched video details:", data.title);
+  return data;
 }
 
 export async function startDownload(
@@ -86,8 +94,9 @@ export async function startDownload(
       body: JSON.stringify({ url, height, type }),
     });
   } catch (err: unknown) {
+    console.error("[YTVidMate] Start download connection failed:", err);
     throw new Error(
-      `Cannot connect to backend server at ${baseUrl}. Please make sure the FastAPI backend is running on port 8000.`
+      `Cannot connect to backend server. Please verify that FastAPI is running on port 8000.`
     );
   }
 

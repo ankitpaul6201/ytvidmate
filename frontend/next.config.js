@@ -5,7 +5,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: https:",
   "font-src 'self'",
-  "connect-src 'self' http://localhost:8000 https://challenges.cloudflare.com",
+  "connect-src 'self' http://localhost:8000 http://127.0.0.1:8000 https://challenges.cloudflare.com",
   "frame-src https://challenges.cloudflare.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
@@ -16,6 +16,15 @@ const csp = [
 const nextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  async rewrites() {
+    const backendUrl = process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:8000";
+    return [
+      {
+        source: "/api/v1/:path*",
+        destination: `${backendUrl}/api/v1/:path*`,
+      },
+    ];
+  },
   async headers() {
     return [
       {
