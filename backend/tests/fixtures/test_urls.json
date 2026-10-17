@@ -1,0 +1,52 @@
+[
+  {
+    "id": "w3schools_bbb",
+    "name": "Big Buck Bunny Short (W3Schools)",
+    "url": "https://www.w3schools.com/html/mov_bbb.mp4"
+  },
+  {
+    "id": "w3schools_movie",
+    "name": "Sample Bear Video (W3Schools)",
+    "url": "https://www.w3schools.com/tags/movie.mp4"
+  },
+  {
+    "id": "classroom",
+    "name": "Classroom Motion",
+    "url": "https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/classroom.mp4"
+  },
+  {
+    "id": "face_demographics",
+    "name": "Face Demographics Walking",
+    "url": "https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/face-demographics-walking.mp4"
+  },
+  {
+    "id": "head_pose_female",
+    "name": "Head Pose Female",
+    "url": "https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/head-pose-face-detection-female.mp4"
+  },
+  {
+    "id": "head_pose_male",
+    "name": "Head Pose Male",
+    "url": "https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/head-pose-face-detection-male.mp4"
+  },
+  {
+    "id": "person_bicycle_car",
+    "name": "Person Bicycle Car Detection",
+    "url": "https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/person-bicycle-car-detection.mp4"
+  },
+  {
+    "id": "car_detection",
+    "name": "Car Detection",
+    "url": "https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/car-detection.mp4"
+  },
+  {
+    "id": "bottle_detection",
+    "name": "Bottle Detection",
+    "url": "https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/bottle-detection.mp4"
+  },
+  {
+    "id": "driver_action",
+    "name": "Driver Action Recognition",
+    "url": "https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/driver-action-recognition.mp4"
+  }
+]

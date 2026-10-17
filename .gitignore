@@ -29,6 +29,8 @@ build/
 *.tsbuildinfo
 .vercel/
 coverage/
+.coverage
+.coverage.*
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
