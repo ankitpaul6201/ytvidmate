@@ -37,3 +37,4 @@ class DownloadRequest(BaseModel):
     url: str = Field(..., max_length=2048)
     height: int = Field(default=1080)
     type: Literal["video", "audio"] = "video"
+    turnstile_token: str | None = None

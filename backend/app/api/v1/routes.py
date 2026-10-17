@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from app.core.rate_limit import hash_ip, is_rate_limited
 from app.core.security import validate_public_url
 from app.core.tokens import generate_job_token, verify_job_token
+from app.core.turnstile import verify_turnstile_token
 from app.schemas.media import DownloadRequest, InfoRequest, MediaInfoResponse
 from app.services.job_manager import job_manager
 from app.services.ytdlp_service import YtDlpServiceError, extract_media_info
@@ -77,7 +78,7 @@ def get_media_info(payload: InfoRequest, request: Request):
 
 
 @router.post("/download")
-def start_download(
+async def start_download(
     payload: DownloadRequest, request: Request, response: Response
 ):
     client_ip = get_client_ip(request)
@@ -87,6 +88,15 @@ def start_download(
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Download limit reached. Please wait before downloading again.",
+        )
+
+    valid_captcha = await verify_turnstile_token(
+        payload.turnstile_token, client_ip
+    )
+    if not valid_captcha:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Security check failed. Please refresh and try again.",
         )
 
     try:

@@ -1,0 +1,32 @@
+name: Scheduled yt-dlp Auto-Update & Smoke Test
+
+on:
+  schedule:
+    - cron: "0 4 * * *"  # Daily at 04:00 UTC
+  workflow_dispatch:
+
+jobs:
+  update-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -U yt-dlp
+
+      - name: Run Core Smoke Test
+        run: python cli_runner.py --run-fixtures
+
+      - name: Run Backend Test Suite
+        run: pytest -q
