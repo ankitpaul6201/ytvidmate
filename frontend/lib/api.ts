@@ -29,17 +29,32 @@ export interface ProgressEventData {
   error?: string | null;
 }
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+export function getApiBaseUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
+    return process.env.NEXT_PUBLIC_API_BASE_URL;
+  }
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+  return "http://localhost:8000";
+}
 
 export async function fetchMediaInfo(url: string): Promise<MediaInfoResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/v1/info`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ url }),
-  });
+  const baseUrl = getApiBaseUrl();
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl}/api/v1/info`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url }),
+    });
+  } catch (err: unknown) {
+    throw new Error(
+      `Cannot connect to backend server at ${baseUrl}. Please make sure the FastAPI backend is running on port 8000.`
+    );
+  }
 
   if (!res.ok) {
     let errorMsg = "Failed to fetch video details.";
@@ -60,13 +75,21 @@ export async function startDownload(
   height: number,
   type: "video" | "audio"
 ): Promise<DownloadResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/v1/download`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ url, height, type }),
-  });
+  const baseUrl = getApiBaseUrl();
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl}/api/v1/download`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url, height, type }),
+    });
+  } catch (err: unknown) {
+    throw new Error(
+      `Cannot connect to backend server at ${baseUrl}. Please make sure the FastAPI backend is running on port 8000.`
+    );
+  }
 
   if (!res.ok) {
     let errorMsg = "Failed to start download.";
@@ -86,9 +109,11 @@ export function getProgressEventSourceUrl(
   jobId: string,
   token: string
 ): string {
-  return `${API_BASE_URL}/api/v1/progress/${encodeURIComponent(jobId)}?token=${encodeURIComponent(token)}`;
+  const baseUrl = getApiBaseUrl();
+  return `${baseUrl}/api/v1/progress/${encodeURIComponent(jobId)}?token=${encodeURIComponent(token)}`;
 }
 
 export function getFileDownloadUrl(jobId: string, token: string): string {
-  return `${API_BASE_URL}/api/v1/file/${encodeURIComponent(jobId)}?token=${encodeURIComponent(token)}`;
+  const baseUrl = getApiBaseUrl();
+  return `${baseUrl}/api/v1/file/${encodeURIComponent(jobId)}?token=${encodeURIComponent(token)}`;
 }

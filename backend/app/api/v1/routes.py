@@ -56,7 +56,7 @@ def get_media_info(payload: InfoRequest, request: Request):
         )
 
     try:
-        validate_public_url(payload.url)
+        clean_url = validate_public_url(payload.url)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -64,7 +64,7 @@ def get_media_info(payload: InfoRequest, request: Request):
         ) from e
 
     try:
-        return extract_media_info(payload.url)
+        return extract_media_info(clean_url)
     except YtDlpServiceError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -100,7 +100,7 @@ async def start_download(
         )
 
     try:
-        validate_public_url(payload.url)
+        clean_url = validate_public_url(payload.url)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -108,7 +108,7 @@ async def start_download(
         ) from e
 
     job = job_manager.create_job(
-        url=payload.url,
+        url=clean_url,
         height=payload.height,
         media_type=payload.type,
     )

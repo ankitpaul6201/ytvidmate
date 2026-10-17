@@ -84,6 +84,10 @@ def validate_public_url(raw: str) -> str:
     if len(clean_url) > MAX_URL_LEN:
         raise ValueError("URL exceeds maximum length of 2048 characters")
 
+    # If user provided a domain without scheme (e.g. youtube.com/watch), prepend https://
+    if not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", clean_url) and not clean_url.startswith("//"):
+        clean_url = "https://" + clean_url
+
     u = urlparse(clean_url)
 
     if u.scheme not in ALLOWED_SCHEMES:
