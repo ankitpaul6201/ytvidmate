@@ -4,6 +4,7 @@ import yt_dlp
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.v1.routes import router as api_v1_router
 from app.core.config import settings
 
 app = FastAPI(
@@ -21,6 +22,8 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "Authorization"],
 )
+
+app.include_router(api_v1_router)
 
 
 @app.get("/")
