@@ -20,5 +20,14 @@ class Settings(BaseSettings):
         "extra": "ignore",
     }
 
+    @property
+    def allowed_origins(self) -> list[str]:
+        origins = [self.frontend_origin.strip()]
+        if self.app_env != "production":
+            for port in [3000, 3001, 3002, 3003, 3004, 3005]:
+                origins.append(f"http://localhost:{port}")
+                origins.append(f"http://127.0.0.1:{port}")
+        return list(dict.fromkeys(origins))
+
 
 settings = Settings()
