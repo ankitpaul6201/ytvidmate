@@ -23,7 +23,13 @@ def is_rate_limited(hashed_ip: str, endpoint: str) -> bool:
     """
     Checks if a hashed IP exceeds the rate limit for the given endpoint.
     Endpoints: 'info' or 'download'.
+    Bypassed in non-production environments.
     """
+    from app.core.config import settings
+
+    if settings.app_env != "production":
+        return False
+
     now = time.time()
     cutoff = now - WINDOW_SECONDS
 
