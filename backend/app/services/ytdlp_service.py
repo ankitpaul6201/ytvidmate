@@ -176,6 +176,30 @@ def is_youtube_url(url: str) -> bool:
         return False
 
 
+def get_proxy_urls() -> list[str]:
+    """
+    Parses configured proxy URL or comma/newline-delimited proxy pool list.
+    """
+    if not settings.proxy_url:
+        return []
+    raw = settings.proxy_url.get_secret_value()
+    return [p.strip() for p in re.split(r"[,;\n]+", raw) if p.strip()]
+
+
+def get_active_proxy(exclude: set[str] | None = None) -> str | None:
+    """
+    Returns an active proxy URL from the configured pool, optionally excluding failed proxies.
+    """
+    proxies = get_proxy_urls()
+    if not proxies:
+        return None
+    available = [p for p in proxies if p not in (exclude or set())]
+    if not available:
+        available = proxies
+    import random
+    return random.choice(available)
+
+
 def extract_media_info(url: str) -> MediaInfoResponse:
     """
     Extracts metadata and available formats for a validated URL without downloading.
@@ -212,8 +236,9 @@ def extract_media_info(url: str) -> MediaInfoResponse:
     if cookie_file and not is_yt:
         ydl_opts["cookiefile"] = cookie_file
 
-    if settings.proxy_url:
-        ydl_opts["proxy"] = settings.proxy_url.get_secret_value()
+    active_proxy = get_active_proxy()
+    if active_proxy:
+        ydl_opts["proxy"] = active_proxy
 
     info = None
     try:
@@ -227,8 +252,23 @@ def extract_media_info(url: str) -> MediaInfoResponse:
         msg = str(e).lower()
         info = None
 
-        # Fallback 1: If YouTube video required sign-in (e.g. age-gated) and cookies exist, try with cookies
-        if is_yt and cookie_file and ("sign in" in msg or "age" in msg):
+        # Fallback 1: If proxy pool has alternative proxies and current attempt failed
+        proxies_pool = get_proxy_urls()
+        if not info and active_proxy and len(proxies_pool) > 1:
+            other_proxy = get_active_proxy(exclude={active_proxy})
+            if other_proxy and other_proxy != active_proxy:
+                logger.info("Retrying extraction with alternative proxy from pool...")
+                proxy_opts = dict(ydl_opts)
+                proxy_opts["proxy"] = other_proxy
+                try:
+                    with yt_dlp.YoutubeDL(proxy_opts) as ydl:
+                        info = ydl.extract_info(clean_url, download=False)
+                except Exception as p_err:
+                    logger.warning(f"Alternative proxy retry failed: {p_err}")
+                    info = None
+
+        # Fallback 2: If YouTube video required sign-in (e.g. age-gated) and cookies exist, try with cookies
+        if not info and is_yt and cookie_file and ("sign in" in msg or "age" in msg):
             logger.info("Attempting YouTube extraction with authenticated cookies for age-restricted video...")
             cookie_opts = dict(ydl_opts)
             cookie_opts["cookiefile"] = cookie_file
@@ -239,7 +279,7 @@ def extract_media_info(url: str) -> MediaInfoResponse:
                 logger.warning(f"Cookie attempt failed: {c_err}")
                 info = None
 
-        # Fallback 2: If a non-YouTube extraction failed while using cookies, retry without cookies
+        # Fallback 3: If a non-YouTube extraction failed while using cookies, retry without cookies
         if not info and "cookiefile" in ydl_opts:
             logger.warning(
                 f"yt-dlp extraction with cookies failed ({e}); retrying anonymously without cookies..."
@@ -572,8 +612,9 @@ def download_media(
     if ffmpeg_dir:
         ydl_opts["ffmpeg_location"] = ffmpeg_dir
 
-    if settings.proxy_url:
-        ydl_opts["proxy"] = settings.proxy_url.get_secret_value()
+    active_proxy = get_active_proxy()
+    if active_proxy:
+        ydl_opts["proxy"] = active_proxy
 
     cookie_file = get_cookie_file_path()
     if cookie_file and not is_yt:
