@@ -117,12 +117,33 @@ class YtDlpServiceError(Exception):
         self.user_message = user_message
 
 
+def normalize_cookie_content(text: str) -> str:
+    """
+    Normalizes Netscape cookie content where tabs may have been converted to spaces.
+    Ensures exactly 7 tab-delimited columns for valid Netscape cookie jar format.
+    """
+    normalized_lines: list[str] = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            normalized_lines.append(line)
+            continue
+        parts = re.split(r"\s+", line, maxsplit=6)
+        if len(parts) == 7:
+            normalized_lines.append("\t".join(parts))
+        elif len(parts) == 6:
+            normalized_lines.append("\t".join(parts) + "\t")
+        else:
+            normalized_lines.append(line)
+    return "\n".join(normalized_lines) + "\n"
+
+
 def get_cookie_file_path() -> str | None:
     """
     Locates or prepares a cookies file to bypass cloud/datacenter IP restrictions.
     Supports local cookies.txt, /app/cookies.txt, or YOUTUBE_COOKIES environment variable.
     """
-    for loc in ["cookies.txt", "/app/cookies.txt", os.path.join(settings.tmp_dir, "cookies.txt")]:
+    for loc in ["cookies.txt", "/app/cookies.txt"]:
         if os.path.isfile(loc) and os.path.getsize(loc) > 10:
             return loc
 
@@ -130,11 +151,16 @@ def get_cookie_file_path() -> str | None:
         cookie_file = os.path.join(settings.tmp_dir, "cookies.txt")
         try:
             os.makedirs(settings.tmp_dir, exist_ok=True)
+            norm = normalize_cookie_content(settings.youtube_cookies.get_secret_value())
             with open(cookie_file, "w", encoding="utf-8") as f:
-                f.write(settings.youtube_cookies.get_secret_value())
+                f.write(norm)
             return cookie_file
         except Exception as e:
             logger.error(f"Failed to write cookies from env: {e}")
+
+    temp_loc = os.path.join(settings.tmp_dir, "cookies.txt")
+    if os.path.isfile(temp_loc) and os.path.getsize(temp_loc) > 10:
+        return temp_loc
 
     return None
 
@@ -151,6 +177,7 @@ def extract_media_info(url: str) -> MediaInfoResponse:
         "quiet": True,
         "no_warnings": True,
         "skip_download": True,
+        "js_runtimes": {"node": {}, "deno": {}},
         "extractor_args": {
             "twitter": {
                 "api": ["syndication", "graphql"]
@@ -168,6 +195,7 @@ def extract_media_info(url: str) -> MediaInfoResponse:
     if settings.proxy_url:
         ydl_opts["proxy"] = settings.proxy_url.get_secret_value()
 
+    info = None
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(clean_url, download=False)
@@ -178,16 +206,34 @@ def extract_media_info(url: str) -> MediaInfoResponse:
     except (ExtractorError, DownloadError) as e:
         msg = str(e).lower()
         info = None
-        # Datacenter/Cloud IP fallback: if default extraction encounters bot checks or player response failures
-        if "player response" in msg or "sign in" in msg or "bot" in msg:
+
+        # Fallback 1: If extraction failed while using cookies (stale/expired session, reload needed, IP lock),
+        # retry cleanly without cookies using modern visionos/default hierarchy.
+        if "cookiefile" in ydl_opts:
+            logger.warning(
+                f"yt-dlp extraction with cookies failed ({e}); retrying anonymously without cookies..."
+            )
+            retry_opts = dict(ydl_opts)
+            del retry_opts["cookiefile"]
             try:
-                fallback_opts = dict(ydl_opts)
-                fallback_opts["extractor_args"] = {
+                with yt_dlp.YoutubeDL(retry_opts) as ydl:
+                    info = ydl.extract_info(clean_url, download=False)
+            except Exception as retry_err:
+                logger.warning(f"Retry without cookies failed: {retry_err}")
+                info = None
+                msg = str(retry_err).lower()
+
+        # Fallback 2: If bot / player response check occurs, try tv_embedded client fallback
+        if not info and ("player response" in msg or "sign in" in msg or "bot" in msg or "reload" in msg):
+            try:
+                tv_opts = dict(ydl_opts)
+                tv_opts.pop("cookiefile", None)
+                tv_opts["extractor_args"] = {
                     "youtube": {
-                        "player_client": ["android", "mweb"]
+                        "player_client": ["tv_embedded"]
                     }
                 }
-                with yt_dlp.YoutubeDL(fallback_opts) as ydl:
+                with yt_dlp.YoutubeDL(tv_opts) as ydl:
                     info = ydl.extract_info(clean_url, download=False)
             except Exception:
                 info = None
@@ -500,6 +546,8 @@ def download_media(
         if merge_format:
             ydl_opts["merge_output_format"] = merge_format
 
+    ydl_opts["js_runtimes"] = {"node": {}, "deno": {}}
+
     if ffmpeg_dir:
         ydl_opts["ffmpeg_location"] = ffmpeg_dir
 
@@ -510,33 +558,56 @@ def download_media(
     if cookie_file:
         ydl_opts["cookiefile"] = cookie_file
 
+    info = None
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(clean_url, download=True)
-            if not info:
-                raise YtDlpServiceError(
-                    "Download returned no info", "Failed to download media."
-                )
-
-            title = str(info.get("title") or "video")
-            ext = "mp3" if media_type == "audio" else "mp4"
-            expected_filename = safe_name(title, ext)
-
-        return expected_filename
     except DownloadError as e:
         msg = str(e)
-        logger.error(f"yt-dlp download error: {msg}")
-        if "ffmpeg is not installed" in msg.lower():
+        logger.warning(f"yt-dlp download attempt failed: {msg}")
+        # If download failed with cookies (stale/reload/IP restriction), retry cleanly without cookies
+        if "cookiefile" in ydl_opts:
+            logger.warning("Retrying download anonymously without cookies...")
+            retry_opts = dict(ydl_opts)
+            del retry_opts["cookiefile"]
+            try:
+                with yt_dlp.YoutubeDL(retry_opts) as ydl:
+                    info = ydl.extract_info(clean_url, download=True)
+            except DownloadError as retry_err:
+                msg = str(retry_err)
+                logger.error(f"yt-dlp download retry failed: {msg}")
+                if "ffmpeg is not installed" in msg.lower():
+                    raise YtDlpServiceError(
+                        msg,
+                        "FFmpeg is required to merge and process this format. "
+                        "Please configure FFmpeg on the server.",
+                    ) from retry_err
+                raise YtDlpServiceError(
+                    msg, "Failed to download media. Please try again."
+                ) from retry_err
+        else:
+            logger.error(f"yt-dlp download error: {msg}")
+            if "ffmpeg is not installed" in msg.lower():
+                raise YtDlpServiceError(
+                    msg,
+                    "FFmpeg is required to merge and process this format. "
+                    "Please configure FFmpeg on the server.",
+                ) from e
             raise YtDlpServiceError(
-                msg,
-                "FFmpeg is required to merge and process this format. "
-                "Please configure FFmpeg on the server.",
+                msg, "Failed to download media. Please try again."
             ) from e
-        raise YtDlpServiceError(
-            msg, "Failed to download media. Please try again."
-        ) from e
+
     except YtDlpServiceError:
         raise
     except Exception as e:
         logger.error(f"Unexpected download error: {e}", exc_info=True)
         raise YtDlpServiceError(str(e), "Failed to download media.") from e
+
+    if not info:
+        raise YtDlpServiceError(
+            "Download returned no info", "Failed to download media."
+        )
+
+    title = str(info.get("title") or "video")
+    ext = "mp3" if media_type == "audio" else "mp4"
+    return safe_name(title, ext)
