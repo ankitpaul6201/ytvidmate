@@ -101,9 +101,12 @@ def test_extract_audio_mp3_invocation(tmp_path):
 
 
 def test_find_ffmpeg_path_from_settings(tmp_path):
+    import os
+
     from app.services.ffmpeg_service import find_ffmpeg_path, get_ffmpeg_dir
 
-    fake_ffmpeg = tmp_path / "ffmpeg.exe"
+    exe_name = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
+    fake_ffmpeg = tmp_path / exe_name
     fake_ffmpeg.write_text("dummy")
 
     with patch("app.core.config.settings.ffmpeg_path", str(fake_ffmpeg)):
@@ -113,10 +116,14 @@ def test_find_ffmpeg_path_from_settings(tmp_path):
 
 
 def test_find_ffprobe_path_adjacent(tmp_path):
+    import os
+
     from app.services.ffmpeg_service import find_ffprobe_path
 
-    fake_ffmpeg = tmp_path / "ffmpeg.exe"
-    fake_ffprobe = tmp_path / "ffprobe.exe"
+    exe_name = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
+    probe_name = "ffprobe.exe" if os.name == "nt" else "ffprobe"
+    fake_ffmpeg = tmp_path / exe_name
+    fake_ffprobe = tmp_path / probe_name
     fake_ffmpeg.write_text("dummy")
     fake_ffprobe.write_text("dummy")
 
