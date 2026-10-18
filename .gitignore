@@ -18,6 +18,7 @@ secrets/
 node_modules/
 venv/
 .venv/
+env/
 __pycache__/
 *.pyc
 
@@ -55,3 +56,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+*.swp
+*.swo
+*~
