@@ -30,14 +30,14 @@ export interface ProgressEventData {
 }
 
 export function getApiBaseUrl(): string {
-  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
-    return process.env.NEXT_PUBLIC_API_BASE_URL;
-  }
   // In the browser, use relative paths so Next.js rewrites proxy to backend with zero CORS issues
   if (typeof window !== "undefined") {
     return "";
   }
-  return "http://127.0.0.1:8000";
+  if (process.env.API_BASE_URL) {
+    return process.env.API_BASE_URL;
+  }
+  return process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:8000";
 }
 
 export async function fetchMediaInfo(url: string): Promise<MediaInfoResponse> {

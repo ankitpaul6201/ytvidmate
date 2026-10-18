@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     app_env: str = "development"
-    frontend_origin: str = "http://localhost:3000,http://localhost:3001"
+    frontend_origin: str = "http://localhost:3000,http://localhost:3001,https://ytvidmate.vercel.app"
     redis_url: SecretStr = SecretStr("redis://localhost:6379/0")
     tmp_dir: str = "./temp"
     turnstile_secret_key: SecretStr | None = None

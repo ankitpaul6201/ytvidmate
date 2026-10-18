@@ -7,7 +7,7 @@ const scriptSrc = isDev
   ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com"
   : "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com";
 
-const extraConnect = process.env.NEXT_PUBLIC_API_BASE_URL ? process.env.NEXT_PUBLIC_API_BASE_URL.trim() : "";
+const extraConnect = (process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "").trim();
 const connectSrc = isDev
   ? `connect-src 'self' http://localhost:8000 http://127.0.0.1:8000 ws://localhost:3000 ws://localhost:3001 ws://127.0.0.1:3001 https://challenges.cloudflare.com https://*.onrender.com ${extraConnect}`.trim()
   : `connect-src 'self' https://challenges.cloudflare.com https://*.onrender.com ${extraConnect}`.trim();
@@ -30,7 +30,7 @@ const nextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   async rewrites() {
-    const backendUrl = process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:8000";
+    const backendUrl = process.env.API_BASE_URL || process.env.BACKEND_INTERNAL_URL || "http://127.0.0.1:8000";
     return [
       {
         source: "/api/v1/:path*",
