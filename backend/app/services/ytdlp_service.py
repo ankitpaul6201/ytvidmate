@@ -117,6 +117,24 @@ class YtDlpServiceError(Exception):
         self.user_message = user_message
 
 
+class YtDlpQuietLogger:
+    """
+    Prevents yt-dlp from dumping raw error stack traces to sys.stderr on intermediate attempts.
+    """
+
+    def debug(self, msg: str):
+        pass
+
+    def info(self, msg: str):
+        pass
+
+    def warning(self, msg: str):
+        pass
+
+    def error(self, msg: str):
+        logger.debug(f"[yt-dlp internal]: {msg}")
+
+
 def normalize_cookie_content(text: str) -> str:
     """
     Normalizes Netscape cookie content where tabs may have been converted to spaces.
@@ -213,6 +231,7 @@ def extract_media_info(url: str) -> MediaInfoResponse:
         "quiet": True,
         "no_warnings": True,
         "skip_download": True,
+        "logger": YtDlpQuietLogger(),
         "remote_components": ["ejs:github"],
         "js_runtimes": {"node": {}, "deno": {}},
         "extractor_args": {
@@ -606,6 +625,7 @@ def download_media(
         if merge_format:
             ydl_opts["merge_output_format"] = merge_format
 
+    ydl_opts["logger"] = YtDlpQuietLogger()
     ydl_opts["remote_components"] = ["ejs:github"]
     ydl_opts["js_runtimes"] = {"node": {}, "deno": {}}
 
