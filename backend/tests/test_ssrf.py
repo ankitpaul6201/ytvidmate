@@ -70,6 +70,7 @@ def test_safe_job_path_traversal():
 
 def test_nat64_validation():
     import ipaddress
+
     from app.core.security import _is_blocked_ip
 
     # Public IPv4 inside RFC 6052 NAT64 prefix should be allowed

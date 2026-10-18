@@ -1,5 +1,6 @@
 import yt_dlp
 from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -28,9 +29,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "HEAD", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
 )
-
-
-from fastapi.exceptions import RequestValidationError
 
 
 @app.exception_handler(JobQueueFullError)
