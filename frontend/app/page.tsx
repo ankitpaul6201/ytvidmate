@@ -59,14 +59,14 @@ export default function HomePage() {
         lower.includes("codec") ||
         lower.includes("label too long") ||
         lower.includes("hostname") ||
-        lower.includes("resolv") ||
         lower.includes("scheme") ||
         lower.includes("422") ||
         lower.includes("unprocessable") ||
-        lower.includes("field required") ||
-        msg.includes("500")
+        lower.includes("field required")
       ) {
         msg = "Please enter or paste a valid video URL.";
+      } else if (lower.includes("500") || lower.includes("failed to fetch") || lower.includes("networkerror")) {
+        msg = "Unable to reach the backend service. The server may be waking up, please try again shortly.";
       }
       setErrorMessage(msg);
       setVideoInfo(null);

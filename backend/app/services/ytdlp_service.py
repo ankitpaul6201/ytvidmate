@@ -123,7 +123,7 @@ def extract_media_info(url: str) -> MediaInfoResponse:
     clean_url = validate_public_url(url)
     clean_url = canonicalize_social_url(clean_url)
 
-    ydl_opts = {
+    ydl_opts: dict[str, Any] = {
         "noplaylist": True,
         "quiet": True,
         "no_warnings": True,
@@ -132,14 +132,14 @@ def extract_media_info(url: str) -> MediaInfoResponse:
             "twitter": {
                 "api": ["syndication", "graphql"]
             },
-            "youtube": {
-                "player_client": ["android", "web"]
-            },
         },
         "http_headers": {
             "Accept-Language": "en-US,en;q=0.9",
         },
     }
+
+    if settings.proxy_url:
+        ydl_opts["proxy"] = settings.proxy_url.get_secret_value()
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -148,34 +148,39 @@ def extract_media_info(url: str) -> MediaInfoResponse:
         raise YtDlpServiceError(
             str(e), "This video isn't available in our server's region."
         ) from e
-    except ExtractorError as e:
+    except (ExtractorError, DownloadError) as e:
         msg = str(e).lower()
-        if "drm" in msg or "protected" in msg:
+        info = None
+        # Datacenter/Cloud IP fallback: if default extraction encounters bot checks or player response failures
+        if "player response" in msg or "sign in" in msg or "bot" in msg:
+            try:
+                fallback_opts = dict(ydl_opts)
+                fallback_opts["extractor_args"] = {
+                    "youtube": {
+                        "player_client": ["ios", "mweb", "tv"]
+                    }
+                }
+                with yt_dlp.YoutubeDL(fallback_opts) as ydl:
+                    info = ydl.extract_info(clean_url, download=False)
+            except Exception:
+                info = None
+
+        if not info:
+            if "drm" in msg or "protected" in msg:
+                raise YtDlpServiceError(
+                    str(e), "Protected content (DRM) can't be downloaded."
+                ) from e
+            if "private" in msg or "unavailable" in msg or "removed" in msg:
+                raise YtDlpServiceError(
+                    str(e), "This video is private or no longer available."
+                ) from e
+            if "no video could be found" in msg or "no video formats" in msg:
+                raise YtDlpServiceError(
+                    str(e), "No video found at this link. Please check that this post contains a video."
+                ) from e
             raise YtDlpServiceError(
-                str(e), "Protected content (DRM) can't be downloaded."
+                str(e), "Could not retrieve video from this link. Please verify the URL."
             ) from e
-        if "private" in msg or "unavailable" in msg:
-            raise YtDlpServiceError(
-                str(e), "This video is private or no longer available."
-            ) from e
-        raise YtDlpServiceError(str(e), "We don't support this site yet.") from e
-    except DownloadError as e:
-        msg = str(e).lower()
-        if "private" in msg or "sign in" in msg or "removed" in msg:
-            raise YtDlpServiceError(
-                str(e), "This video is private or no longer available."
-            ) from e
-        if "drm" in msg:
-            raise YtDlpServiceError(
-                str(e), "Protected content (DRM) can't be downloaded."
-            ) from e
-        if "no video could be found" in msg or "no video formats" in msg:
-            raise YtDlpServiceError(
-                str(e), "No video found at this link. Please check that this post contains a video."
-            ) from e
-        raise YtDlpServiceError(
-            str(e), "Could not retrieve video from this link. Please verify the URL."
-        ) from e
     except Exception as e:
         logger.error(f"Unexpected extraction error: {e}", exc_info=True)
         raise YtDlpServiceError(
@@ -410,9 +415,6 @@ def download_media(
         "twitter": {
             "api": ["syndication", "graphql"]
         },
-        "youtube": {
-            "player_client": ["android", "web"]
-        },
     }
 
     if media_type == "audio":
@@ -473,6 +475,9 @@ def download_media(
 
     if ffmpeg_dir:
         ydl_opts["ffmpeg_location"] = ffmpeg_dir
+
+    if settings.proxy_url:
+        ydl_opts["proxy"] = settings.proxy_url.get_secret_value()
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
