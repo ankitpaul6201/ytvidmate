@@ -165,20 +165,36 @@ def get_cookie_file_path() -> str | None:
     return None
 
 
+def is_youtube_url(url: str) -> bool:
+    """
+    Checks if a URL belongs to YouTube.
+    """
+    try:
+        host = (urlparse(url).hostname or "").lower()
+        return "youtube.com" in host or "youtu.be" in host
+    except Exception:
+        return False
+
+
 def extract_media_info(url: str) -> MediaInfoResponse:
     """
     Extracts metadata and available formats for a validated URL without downloading.
     """
     clean_url = validate_public_url(url)
     clean_url = canonicalize_social_url(clean_url)
+    is_yt = is_youtube_url(clean_url)
 
     ydl_opts: dict[str, Any] = {
         "noplaylist": True,
         "quiet": True,
         "no_warnings": True,
         "skip_download": True,
+        "remote_components": ["ejs:github"],
         "js_runtimes": {"node": {}, "deno": {}},
         "extractor_args": {
+            "youtube": {
+                "player_client": ["visionos", "android"]
+            },
             "twitter": {
                 "api": ["syndication", "graphql"]
             },
@@ -189,7 +205,11 @@ def extract_media_info(url: str) -> MediaInfoResponse:
     }
 
     cookie_file = get_cookie_file_path()
-    if cookie_file:
+    # YouTube's reliable player clients (visionos, android) do NOT support cookies.
+    # Passing cookies to yt-dlp forces legacy authed clients (web, tv_downgraded) which fail
+    # on datacenter IPs with 'Failed to extract any player response' or 'The page needs to be reloaded'.
+    # Therefore, cookies are applied to non-YouTube platforms or reserved for YouTube age-restricted fallbacks.
+    if cookie_file and not is_yt:
         ydl_opts["cookiefile"] = cookie_file
 
     if settings.proxy_url:
@@ -207,9 +227,20 @@ def extract_media_info(url: str) -> MediaInfoResponse:
         msg = str(e).lower()
         info = None
 
-        # Fallback 1: If extraction failed while using cookies (stale/expired session, reload needed, IP lock),
-        # retry cleanly without cookies using modern visionos/default hierarchy.
-        if "cookiefile" in ydl_opts:
+        # Fallback 1: If YouTube video required sign-in (e.g. age-gated) and cookies exist, try with cookies
+        if is_yt and cookie_file and ("sign in" in msg or "age" in msg):
+            logger.info("Attempting YouTube extraction with authenticated cookies for age-restricted video...")
+            cookie_opts = dict(ydl_opts)
+            cookie_opts["cookiefile"] = cookie_file
+            try:
+                with yt_dlp.YoutubeDL(cookie_opts) as ydl:
+                    info = ydl.extract_info(clean_url, download=False)
+            except Exception as c_err:
+                logger.warning(f"Cookie attempt failed: {c_err}")
+                info = None
+
+        # Fallback 2: If a non-YouTube extraction failed while using cookies, retry without cookies
+        if not info and "cookiefile" in ydl_opts:
             logger.warning(
                 f"yt-dlp extraction with cookies failed ({e}); retrying anonymously without cookies..."
             )
@@ -222,21 +253,6 @@ def extract_media_info(url: str) -> MediaInfoResponse:
                 logger.warning(f"Retry without cookies failed: {retry_err}")
                 info = None
                 msg = str(retry_err).lower()
-
-        # Fallback 2: If bot / player response check occurs, try tv_embedded client fallback
-        if not info and ("player response" in msg or "sign in" in msg or "bot" in msg or "reload" in msg):
-            try:
-                tv_opts = dict(ydl_opts)
-                tv_opts.pop("cookiefile", None)
-                tv_opts["extractor_args"] = {
-                    "youtube": {
-                        "player_client": ["tv_embedded"]
-                    }
-                }
-                with yt_dlp.YoutubeDL(tv_opts) as ydl:
-                    info = ydl.extract_info(clean_url, download=False)
-            except Exception:
-                info = None
 
         if not info:
             if "drm" in msg or "protected" in msg:
@@ -484,7 +500,11 @@ def download_media(
     ffmpeg_dir = get_ffmpeg_dir()
     ffmpeg_available = is_ffmpeg_available()
 
+    is_yt = is_youtube_url(clean_url)
     common_extractor_args = {
+        "youtube": {
+            "player_client": ["visionos", "android"]
+        },
         "twitter": {
             "api": ["syndication", "graphql"]
         },
@@ -546,6 +566,7 @@ def download_media(
         if merge_format:
             ydl_opts["merge_output_format"] = merge_format
 
+    ydl_opts["remote_components"] = ["ejs:github"]
     ydl_opts["js_runtimes"] = {"node": {}, "deno": {}}
 
     if ffmpeg_dir:
@@ -555,7 +576,7 @@ def download_media(
         ydl_opts["proxy"] = settings.proxy_url.get_secret_value()
 
     cookie_file = get_cookie_file_path()
-    if cookie_file:
+    if cookie_file and not is_yt:
         ydl_opts["cookiefile"] = cookie_file
 
     info = None
