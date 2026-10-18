@@ -41,9 +41,14 @@ export function getApiBaseUrl(): string {
 }
 
 export async function fetchMediaInfo(url: string): Promise<MediaInfoResponse> {
+  const cleanUrl = url ? url.trim() : "";
+  if (!cleanUrl) {
+    throw new Error("Please enter or paste a valid video URL.");
+  }
+
   const baseUrl = getApiBaseUrl();
   const endpoint = `${baseUrl}/api/v1/info`;
-  console.log("[YTVidMate] Requesting video details for:", url, "via:", endpoint || "/api/v1/info");
+  console.log("[YTVidMate] Requesting video details for:", cleanUrl, "via:", endpoint || "/api/v1/info");
 
   let res: Response;
   try {
@@ -52,7 +57,7 @@ export async function fetchMediaInfo(url: string): Promise<MediaInfoResponse> {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url: cleanUrl }),
     });
   } catch (err: unknown) {
     console.error("[YTVidMate] Network connection failed:", err);
@@ -62,13 +67,36 @@ export async function fetchMediaInfo(url: string): Promise<MediaInfoResponse> {
   }
 
   if (!res.ok) {
-    let errorMsg = "Failed to fetch video details.";
+    let errorMsg = "Please enter or paste a valid video URL.";
     try {
       const errData = await res.json();
-      errorMsg = errData.detail || errorMsg;
+      if (typeof errData.detail === "string") {
+        errorMsg = errData.detail;
+      } else if (Array.isArray(errData.detail) && errData.detail.length > 0) {
+        errorMsg =
+          errData.detail[0]?.msg?.replace(/^Value error,\s*/i, "") ||
+          "Please enter or paste a valid video URL.";
+      } else if (errData.error) {
+        errorMsg = String(errData.error);
+      }
     } catch {
       // fallback
     }
+
+    const lower = errorMsg.toLowerCase();
+    if (
+      res.status === 422 ||
+      (res.status === 400 &&
+        (lower.includes("hostname") ||
+          lower.includes("resolv") ||
+          lower.includes("scheme") ||
+          lower.includes("url") ||
+          lower.includes("field required") ||
+          lower.includes("unprocessable")))
+    ) {
+      errorMsg = "Please enter or paste a valid video URL.";
+    }
+
     console.warn("[YTVidMate] Backend error:", errorMsg);
     throw new Error(errorMsg);
   }
@@ -104,7 +132,15 @@ export async function startDownload(
     let errorMsg = "Failed to start download.";
     try {
       const errData = await res.json();
-      errorMsg = errData.detail || errorMsg;
+      if (typeof errData.detail === "string") {
+        errorMsg = errData.detail;
+      } else if (Array.isArray(errData.detail) && errData.detail.length > 0) {
+        errorMsg =
+          errData.detail[0]?.msg?.replace(/^Value error,\s*/i, "") ||
+          "Failed to start download.";
+      } else if (errData.error) {
+        errorMsg = String(errData.error);
+      }
     } catch {
       // fallback
     }
@@ -118,11 +154,27 @@ export function getProgressEventSourceUrl(
   jobId: string,
   token: string
 ): string {
-  const baseUrl = getApiBaseUrl();
+  let baseUrl = getApiBaseUrl();
+  if (!baseUrl && typeof window !== "undefined") {
+    const isLocalhost =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1";
+    if (isLocalhost) {
+      baseUrl = `http://${window.location.hostname}:8000`;
+    }
+  }
   return `${baseUrl}/api/v1/progress/${encodeURIComponent(jobId)}?token=${encodeURIComponent(token)}`;
 }
 
 export function getFileDownloadUrl(jobId: string, token: string): string {
-  const baseUrl = getApiBaseUrl();
+  let baseUrl = getApiBaseUrl();
+  if (!baseUrl && typeof window !== "undefined") {
+    const isLocalhost =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1";
+    if (isLocalhost) {
+      baseUrl = `http://${window.location.hostname}:8000`;
+    }
+  }
   return `${baseUrl}/api/v1/file/${encodeURIComponent(jobId)}?token=${encodeURIComponent(token)}`;
 }

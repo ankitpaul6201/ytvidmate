@@ -65,4 +65,4 @@ User-agent: Google-Extended
 Disallow: /
 
 # ---------- Sitemap ----------
-Sitemap: https://yourdomain.com/sitemap.xml
+Sitemap: https://ytvidmate.com/sitemap.xml

@@ -10,8 +10,8 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          DEFAULT: "#6366F1",
-          hover: "#4F46E5",
+          DEFAULT: "#2D8AF4",
+          hover: "#2279E5",
         },
         success: "#10B981",
         error: "#EF4444",
@@ -22,6 +22,10 @@ const config: Config = {
         surfaceDark: "#131A2A",
         textLight: "#0F172A",
         textDark: "#E5E7EB",
+      },
+      fontFamily: {
+        sans: ["var(--font-outfit)", "Outfit", "sans-serif"],
+        poppins: ["var(--font-poppins)", "Poppins", "sans-serif"],
       },
       borderRadius: {
         card: "12px",

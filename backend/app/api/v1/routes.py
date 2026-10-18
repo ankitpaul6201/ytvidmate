@@ -19,7 +19,7 @@ from app.core.security import validate_public_url
 from app.core.tokens import generate_job_token, verify_job_token
 from app.core.turnstile import verify_turnstile_token
 from app.schemas.media import DownloadRequest, InfoRequest, MediaInfoResponse
-from app.services.job_manager import job_manager
+from app.services.job_manager import JobQueueFullError, job_manager
 from app.services.ytdlp_service import YtDlpServiceError, extract_media_info
 
 router = APIRouter(prefix="/api/v1", tags=["Media Downloader"])
@@ -107,11 +107,18 @@ async def start_download(
             detail=str(e),
         ) from e
 
-    job = job_manager.create_job(
-        url=clean_url,
-        height=payload.height,
-        media_type=payload.type,
-    )
+    try:
+        job = job_manager.create_job(
+            url=clean_url,
+            height=payload.height,
+            media_type=payload.type,
+        )
+    except JobQueueFullError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=e.user_message,
+            headers={"Retry-After": "60"},
+        ) from e
 
     token = generate_job_token(job.job_id)
 

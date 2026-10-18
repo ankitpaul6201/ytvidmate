@@ -66,3 +66,21 @@ def test_safe_job_path_traversal():
 
     with pytest.raises(ValueError):
         safe_job_path("temp_dir", "invalid-uuid", "video.mp4")
+
+
+def test_nat64_validation():
+    import ipaddress
+    from app.core.security import _is_blocked_ip
+
+    # Public IPv4 inside RFC 6052 NAT64 prefix should be allowed
+    pub_nat64 = ipaddress.IPv6Address("64:ff9b::ac42:e3")  # 172.66.0.227
+    assert not _is_blocked_ip(pub_nat64)
+
+    # Localhost inside RFC 6052 NAT64 prefix must be blocked
+    local_nat64 = ipaddress.IPv6Address("64:ff9b::7f00:0001")  # 127.0.0.1
+    assert _is_blocked_ip(local_nat64)
+
+    # Private RFC1918 inside NAT64 must be blocked
+    priv_nat64 = ipaddress.IPv6Address("64:ff9b::0a00:0001")  # 10.0.0.1
+    assert _is_blocked_ip(priv_nat64)
+

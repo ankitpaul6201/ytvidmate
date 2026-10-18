@@ -86,12 +86,13 @@ export function PlatformLanding({
     setActiveJob(null);
     setVideoInfo(null);
     setErrorMessage(null);
+    setCurrentUrl("");
   };
 
   return (
     <div>
       <section className="pt-10 pb-16 px-4 sm:px-6 text-center max-w-4xl mx-auto">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-primary dark:bg-indigo-950/60 mb-5">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#2D8AF4]/10 border border-[#2D8AF4]/30 text-[#1664C0] dark:text-[#86B8F3] dark:bg-[#2D8AF4]/20 mb-5">
           <CheckCircle className="w-3.5 h-3.5" />
           <span>{platformName} High Speed Downloader</span>
         </div>
@@ -104,7 +105,12 @@ export function PlatformLanding({
         </p>
 
         <div className="mt-8">
-          <UrlInput onFetch={handleFetch} isLoading={isFetching} />
+          <UrlInput
+            value={currentUrl}
+            onChange={setCurrentUrl}
+            onFetch={handleFetch}
+            isLoading={isFetching}
+          />
         </div>
 
         {errorMessage && (

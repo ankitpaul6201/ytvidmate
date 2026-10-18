@@ -11,12 +11,104 @@ class FFmpegServiceError(Exception):
     pass
 
 
+def _ensure_path(directory: str) -> None:
+    if not directory or not os.path.isdir(directory):
+        return
+    current_paths = [
+        p.lower() for p in os.environ.get("PATH", "").split(os.pathsep) if p
+    ]
+    if directory.lower() not in current_paths:
+        os.environ["PATH"] = directory + os.pathsep + os.environ.get("PATH", "")
+
+
+def find_ffmpeg_path() -> str | None:
+    """
+    Finds the ffmpeg executable across configured settings, PATH,
+    and known install locations. Automatically prepends the found
+    directory to os.environ["PATH"].
+    """
+    try:
+        from app.core.config import settings
+
+        if settings.ffmpeg_path:
+            cand = os.path.expandvars(settings.ffmpeg_path)
+            if os.path.isfile(cand):
+                _ensure_path(os.path.dirname(cand))
+                return cand
+            exe_cand = os.path.join(
+                cand, "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
+            )
+            if os.path.isfile(exe_cand):
+                _ensure_path(cand)
+                return exe_cand
+    except Exception as e:
+        logger.debug(f"Could not load settings for ffmpeg: {e}")
+
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+
+    if os.name == "nt":
+        known_locations = [
+            r"C:\Program Files\Softdeluxe\Free Download Manager",
+            r"C:\Program Files\TOPSPEED NETWORK LIMITED\FebBox\FFmpeg",
+            r"C:\ffmpeg\bin",
+            r"C:\Program Files\ffmpeg\bin",
+            os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WinGet\Links"),
+        ]
+        for loc in known_locations:
+            exe = os.path.join(loc, "ffmpeg.exe")
+            if os.path.isfile(exe):
+                _ensure_path(loc)
+                return exe
+
+        winget_pkgs = os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WinGet\Packages")
+        if os.path.isdir(winget_pkgs):
+            try:
+                for root, _, files in os.walk(winget_pkgs):
+                    if "ffmpeg.exe" in (f.lower() for f in files):
+                        exe = os.path.join(root, "ffmpeg.exe")
+                        _ensure_path(root)
+                        return exe
+            except Exception:
+                pass
+
+    return None
+
+
+def find_ffprobe_path() -> str | None:
+    """
+    Finds the ffprobe executable across configured settings, PATH,
+    and adjacent to ffmpeg.
+    """
+    found = shutil.which("ffprobe")
+    if found:
+        return found
+
+    ffmpeg_exe = find_ffmpeg_path()
+    if ffmpeg_exe:
+        parent = os.path.dirname(ffmpeg_exe)
+        cand = os.path.join(
+            parent, "ffprobe.exe" if os.name == "nt" else "ffprobe"
+        )
+        if os.path.isfile(cand):
+            _ensure_path(parent)
+            return cand
+
+    return None
+
+
+def get_ffmpeg_dir() -> str | None:
+    p = find_ffmpeg_path()
+    return os.path.dirname(p) if p else None
+
+
 def is_ffmpeg_available() -> bool:
-    return shutil.which("ffmpeg") is not None
+    return find_ffmpeg_path() is not None
 
 
 def is_ffprobe_available() -> bool:
-    return shutil.which("ffprobe") is not None
+    return find_ffprobe_path() is not None
 
 
 def probe_file(file_path: str) -> dict:

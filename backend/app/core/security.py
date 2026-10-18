@@ -9,7 +9,16 @@ ALLOWED_SCHEMES = {"http", "https"}
 MAX_URL_LEN = 2048
 
 
+NAT64_PREFIX = ipaddress.IPv6Network("64:ff9b::/96")
+
+
 def _is_blocked_ip(ip_obj: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    # Handle RFC 6052 NAT64/DNS64 prefix (64:ff9b::/96)
+    if isinstance(ip_obj, ipaddress.IPv6Address) and ip_obj in NAT64_PREFIX:
+        # Extract the embedded IPv4 address (last 32 bits) and check if that IPv4 is blocked
+        embedded_ipv4 = ipaddress.IPv4Address(ip_obj.packed[-4:])
+        return _is_blocked_ip(embedded_ipv4)
+
     return (
         ip_obj.is_private
         or ip_obj.is_loopback
@@ -18,6 +27,7 @@ def _is_blocked_ip(ip_obj: ipaddress.IPv4Address | ipaddress.IPv6Address) -> boo
         or ip_obj.is_reserved
         or ip_obj.is_unspecified
     )
+
 
 
 def _check_ip_literal(
@@ -85,7 +95,8 @@ def validate_public_url(raw: str) -> str:
         raise ValueError("URL exceeds maximum length of 2048 characters")
 
     # If user provided a domain without scheme (e.g. youtube.com/watch), prepend https://
-    if not re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", clean_url) and not clean_url.startswith("//"):
+    has_scheme = bool(re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", clean_url))
+    if not has_scheme and not clean_url.startswith("//"):
         clean_url = "https://" + clean_url
 
     u = urlparse(clean_url)
@@ -95,8 +106,8 @@ def validate_public_url(raw: str) -> str:
             f"Scheme '{u.scheme}' is not allowed. Only http and https are permitted."
         )
 
-    if not u.hostname:
-        raise ValueError("URL does not contain a valid hostname")
+    if not u.hostname or ("." not in u.hostname and u.hostname.strip("[]").lower() != "localhost"):
+        raise ValueError("Please enter or paste a valid video URL.")
 
     if u.username or u.password:
         raise ValueError("Credentials in URL are forbidden")
@@ -115,20 +126,22 @@ def validate_public_url(raw: str) -> str:
     # 2. DNS resolution check
     try:
         infos = socket.getaddrinfo(hostname, None)
-    except socket.gaierror:
+    except (socket.gaierror, UnicodeError, ValueError) as err:
         # If it wasn't an IP literal and cannot be resolved, reject
         if not ip_literal:
-            raise ValueError(f"Host '{hostname}' could not be resolved")
+            raise ValueError("Please enter or paste a valid video URL.") from err
         infos = []
 
     for info in infos:
         resolved_ip = info[4][0]
         try:
             addr = ipaddress.ip_address(resolved_ip)
-            if _is_blocked_ip(addr):
-                raise ValueError(f"Host resolves to blocked address: {resolved_ip}")
         except ValueError:
             raise ValueError(f"Invalid resolved IP address: {resolved_ip}")
+
+        if _is_blocked_ip(addr):
+            raise ValueError(f"Host resolves to blocked address: {resolved_ip}")
+
 
     return clean_url
 

@@ -24,6 +24,18 @@ def test_api_info_invalid_url():
     assert "blocked" in detail or "scheme" in detail
 
 
+def test_api_info_non_url():
+    res = client.post("/api/v1/info", json={"url": "hello"})
+    assert res.status_code == 422
+    assert "valid video url" in res.json()["detail"].lower()
+
+
+def test_api_info_empty_or_missing_payload():
+    res = client.post("/api/v1/info", json={})
+    assert res.status_code == 422
+    assert "valid video url" in res.json()["detail"].lower()
+
+
 def test_api_info_success():
     mock_info = {
         "id": "abc123",
@@ -121,3 +133,25 @@ def test_api_file_expired():
     token = generate_job_token(fake_job_id)
     res = client.get(f"/api/v1/file/{fake_job_id}?token={token}")
     assert res.status_code == 410
+
+
+def test_high_concurrency_download_queue_limit():
+    from app.core.config import settings
+
+    with patch("app.services.job_manager.JobManager._run_job"):
+        responses = []
+        for i in range(settings.max_queue_size + 10):
+            r = client.post(
+                "/api/v1/download",
+                json={
+                    "url": f"https://www.youtube.com/watch?v=concurrent{i}",
+                    "height": 720,
+                    "type": "video",
+                },
+            )
+            responses.append(r.status_code)
+
+        # First max_queue_size requests are accepted
+        assert responses.count(200) <= settings.max_queue_size
+        # Overflow requests receive HTTP 503 without crashing
+        assert 503 in responses

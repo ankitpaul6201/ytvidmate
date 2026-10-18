@@ -3,12 +3,14 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { PlatformLanding } from "@/components/PlatformLanding";
 
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ytvidmate.com";
+
 export const metadata: Metadata = {
   title: "TikTok Video Downloader – No Watermark HD | YTVidMate",
   description:
     "Download TikTok videos in high definition with sound. Fast, free, and simple with no registration.",
   alternates: {
-    canonical: "https://ytvidmate.example.com/tiktok-video-downloader",
+    canonical: `${baseUrl}/tiktok-video-downloader`,
   },
 };
 

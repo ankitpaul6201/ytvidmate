@@ -70,3 +70,75 @@ def test_extract_media_info_duration_exceeded():
 def test_extract_media_info_invalid_url():
     with pytest.raises(ValueError):
         extract_media_info("http://localhost/bad")
+
+
+def test_download_media_audio_requires_ffmpeg(tmp_path):
+    from app.services.ytdlp_service import download_media
+
+    with patch("app.services.ytdlp_service.is_ffmpeg_available", return_value=False):
+        with pytest.raises(YtDlpServiceError) as exc_info:
+            download_media(
+                url="https://www.youtube.com/watch?v=test123",
+                target_dir=str(tmp_path),
+                media_type="audio",
+            )
+        assert "FFmpeg is required" in exc_info.value.user_message
+
+
+def test_download_media_ffmpeg_missing_error_mapped(tmp_path):
+    from yt_dlp.utils import DownloadError
+
+    from app.services.ytdlp_service import download_media
+
+    err_msg = (
+        "ERROR: You have requested merging of multiple formats but ffmpeg is "
+        "not installed. Aborting due to --abort-on-error"
+    )
+
+    with patch("yt_dlp.YoutubeDL") as mock_ydl_cls:
+        mock_instance = MagicMock()
+        mock_instance.extract_info.side_effect = DownloadError(err_msg)
+        mock_ydl_cls.return_value.__enter__.return_value = mock_instance
+
+        with pytest.raises(YtDlpServiceError) as exc_info:
+            download_media(
+                url="https://www.youtube.com/watch?v=test123",
+                target_dir=str(tmp_path),
+                media_type="video",
+            )
+        assert "FFmpeg is required" in exc_info.value.user_message
+
+
+def test_canonicalize_social_url():
+    from app.services.ytdlp_service import canonicalize_social_url
+
+    # Twitter / X URL cleaning
+    x_url = "https://x.com/username/status/1234567890?s=20&t=abcdef"
+    assert canonicalize_social_url(x_url) == "https://twitter.com/username/status/1234567890"
+
+    # Facebook Reel cleaning
+    fb_reel = "https://www.facebook.com/reel/9876543210/?mibextid=rS40aB7S9Ucbxw6v"
+    assert canonicalize_social_url(fb_reel) == "https://www.facebook.com/reel/9876543210/"
+
+
+def test_extract_media_info_facebook_formats():
+    fb_info = {
+        "id": "fb123",
+        "title": "Facebook Video",
+        "duration": 60,
+        "formats": [
+            {"format_id": "sd", "ext": "mp4", "height": None},
+            {"format_id": "hd", "ext": "mp4", "height": None},
+        ],
+    }
+    with patch("yt_dlp.YoutubeDL") as mock_ydl_cls:
+        mock_instance = MagicMock()
+        mock_instance.extract_info.return_value = fb_info
+        mock_ydl_cls.return_value.__enter__.return_value = mock_instance
+
+        info = extract_media_info("https://www.facebook.com/watch/?v=fb123")
+        assert info.title == "Facebook Video"
+        heights = [f.height for f in info.formats if f.height is not None]
+        assert 720 in heights or 1080 in heights
+        assert 360 in heights or 480 in heights
+

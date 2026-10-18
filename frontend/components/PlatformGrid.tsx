@@ -1,11 +1,12 @@
 import React from "react";
 import Link from "next/link";
-import { PlaySquare, Instagram, Facebook, Twitter, Video, Share2, Film } from "lucide-react";
+import { PlaySquare, Instagram, Facebook, Twitter, Video, Share2, Film, Pin } from "lucide-react";
 
 const PLATFORMS = [
   { name: "YouTube", href: "/youtube-downloader", icon: PlaySquare, color: "text-red-600 bg-red-50 dark:bg-red-950/30" },
   { name: "Instagram", href: "/instagram-video-downloader", icon: Instagram, color: "text-pink-600 bg-pink-50 dark:bg-pink-950/30" },
   { name: "Facebook", href: "/facebook-video-downloader", icon: Facebook, color: "text-blue-600 bg-blue-50 dark:bg-blue-950/30" },
+  { name: "Pinterest", href: "/pinterest-video-downloader", icon: Pin, color: "text-rose-600 bg-rose-50 dark:bg-rose-950/30" },
   { name: "X / Twitter", href: "/twitter-video-downloader", icon: Twitter, color: "text-slate-800 bg-slate-100 dark:text-slate-200 dark:bg-slate-800" },
   { name: "TikTok", href: "/tiktok-video-downloader", icon: Share2, color: "text-cyan-600 bg-cyan-50 dark:bg-cyan-950/30" },
   { name: "Vimeo", href: "/vimeo-downloader", icon: Video, color: "text-sky-600 bg-sky-50 dark:bg-sky-950/30" },
@@ -25,7 +26,7 @@ export function PlatformGrid() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-8 gap-3">
           {PLATFORMS.map((platform) => {
             const Icon = platform.icon;
             return (

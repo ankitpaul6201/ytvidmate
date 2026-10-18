@@ -3,17 +3,24 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { PlatformLanding } from "@/components/PlatformLanding";
 
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ytvidmate.com";
+
 export const metadata: Metadata = {
   title: "YouTube Video Downloader – HD 1080p & 4K with Sound | YTVidMate",
   description:
     "Paste a YouTube link and download videos in 360p to 4K with merged audio. Free, fast, no registration. MP4 and MP3 supported.",
-  alternates: { canonical: "https://ytvidmate.example.com/youtube-downloader" },
+  alternates: { canonical: `${baseUrl}/youtube-downloader` },
   openGraph: {
     title: "YouTube Video Downloader – HD 1080p & 4K with Sound | YTVidMate",
-    description: "Paste a YouTube link and download with crisp audio.",
-    url: "https://ytvidmate.example.com/youtube-downloader",
+    description: "Paste a YouTube link and download with crisp audio. Free, fast, no registration.",
+    url: `${baseUrl}/youtube-downloader`,
     siteName: "YTVidMate",
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "YouTube Video Downloader – HD 1080p & 4K with Sound | YTVidMate",
+    description: "Paste a YouTube link and download with crisp audio. Free, fast, no registration.",
   },
 };
 
@@ -22,11 +29,11 @@ export default function YouTubeDownloaderPage() {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     name: "YTVidMate YouTube Downloader",
-    url: "https://ytvidmate.example.com/youtube-downloader",
+    url: `${baseUrl}/youtube-downloader`,
     applicationCategory: "MultimediaApplication",
-    operatingSystem: "Any",
+    operatingSystem: "Any (Web)",
     offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-    description: "Free online YouTube video downloader in 1080p, 4K, and MP3 with audio.",
+    description: "Free online YouTube video downloader in 1080p, 4K, and MP3 with sound.",
   };
 
   return (

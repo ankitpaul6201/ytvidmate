@@ -3,12 +3,14 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { PlatformLanding } from "@/components/PlatformLanding";
 
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ytvidmate.com";
+
 export const metadata: Metadata = {
   title: "Vimeo Video Downloader – 1080p & 4K Free | YTVidMate",
   description:
     "Download Vimeo videos in full original resolution up to 4K with audio. Fast, free, and secure.",
   alternates: {
-    canonical: "https://ytvidmate.example.com/vimeo-downloader",
+    canonical: `${baseUrl}/vimeo-downloader`,
   },
 };
 

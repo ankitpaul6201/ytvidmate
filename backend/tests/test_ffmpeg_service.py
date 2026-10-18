@@ -98,3 +98,30 @@ def test_extract_audio_mp3_invocation(tmp_path):
             assert cmd[0] == "ffmpeg"
             assert "-vn" in cmd
             assert "-b:a" in cmd
+
+
+def test_find_ffmpeg_path_from_settings(tmp_path):
+    from app.services.ffmpeg_service import find_ffmpeg_path, get_ffmpeg_dir
+
+    fake_ffmpeg = tmp_path / "ffmpeg.exe"
+    fake_ffmpeg.write_text("dummy")
+
+    with patch("app.core.config.settings.ffmpeg_path", str(fake_ffmpeg)):
+        p = find_ffmpeg_path()
+        assert p == str(fake_ffmpeg)
+        assert get_ffmpeg_dir() == str(tmp_path)
+
+
+def test_find_ffprobe_path_adjacent(tmp_path):
+    from app.services.ffmpeg_service import find_ffprobe_path
+
+    fake_ffmpeg = tmp_path / "ffmpeg.exe"
+    fake_ffprobe = tmp_path / "ffprobe.exe"
+    fake_ffmpeg.write_text("dummy")
+    fake_ffprobe.write_text("dummy")
+
+    with patch("shutil.which", return_value=None):
+        with patch("app.core.config.settings.ffmpeg_path", str(fake_ffmpeg)):
+            probe = find_ffprobe_path()
+            assert probe == str(fake_ffprobe)
+

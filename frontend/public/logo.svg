@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="296 148 236 300" width="472" height="600" role="img" aria-label="YTVidMate Logo">
+  <title>YTVidMate logo</title>
+  <defs>
+    <linearGradient id="light" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6BE4F6"/>
+      <stop offset="1" stop-color="#58C9FF"/>
+    </linearGradient>
+    <linearGradient id="band" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0A96FF"/>
+      <stop offset="1" stop-color="#00BDFF"/>
+    </linearGradient>
+    <linearGradient id="dark" x1="0.3" y1="0" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#0050D2"/>
+      <stop offset="1" stop-color="#0592E2"/>
+    </linearGradient>
+  </defs>
+
+  <!-- middle bright band -->
+  <path fill="url(#band)" d="M441 235 L492 270 C515 286 515 312 494 327 L404 391 L346 298 Z"/>
+
+  <!-- upper light piece -->
+  <path fill="url(#light)" d="M308 178 C308 163 325 156 338 165 L441 235 L346 298 C322 290 308 278 308 258 Z"/>
+
+  <!-- lower dark piece -->
+  <path fill="url(#dark)" d="M308 350 C308 330 322 312 346 298 L400 336 C421 350 425 376 404 391 L340 437 C325 447 308 438 308 422 Z"/>
+</svg>

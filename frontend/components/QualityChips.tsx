@@ -27,15 +27,20 @@ export function QualityChips({
     return `~${Math.round(mb)} MB`;
   };
 
+  const getCleanLabel = (label: string) => {
+    // Trim trailing MP4 from individual chips to keep text punchy and clean
+    return label.replace(/\s*MP4$/i, "");
+  };
+
   return (
     <div className="space-y-4">
       {videoFormats.length > 0 && (
         <div>
-          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2.5">
             <Video className="w-3.5 h-3.5" />
-            <span>Video (Merged with Audio)</span>
+            <span>Video (with Audio Combined)</span>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5">
             {videoFormats.map((fmt) => {
               const isSelected = selectedFormat?.format_id === fmt.format_id;
               const size = formatSize(fmt.filesize_approx);
@@ -45,22 +50,22 @@ export function QualityChips({
                   key={fmt.format_id}
                   type="button"
                   onClick={() => onSelect(fmt)}
-                  className={`flex flex-col items-center px-4 py-2.5 rounded-btn border text-sm font-semibold transition-all ${
+                  className={`min-w-0 w-full flex flex-col items-center justify-center px-2 py-2.5 rounded-btn border text-center transition-all ${
                     isSelected
-                      ? "border-primary bg-primary text-white shadow-sm ring-2 ring-primary/20"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-surfaceDark dark:text-slate-200 dark:hover:border-slate-600"
+                      ? "border-primary bg-primary text-white shadow-sm ring-2 ring-primary/20 scale-[1.01]"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50/80 dark:border-slate-700 dark:bg-surfaceDark dark:text-slate-200 dark:hover:border-slate-600"
                   }`}
                 >
-                  <span>{fmt.label}</span>
-                  {size && (
-                    <span
-                      className={`text-[11px] ${
-                        isSelected ? "text-indigo-100" : "text-slate-400"
-                      }`}
-                    >
-                      {size}
-                    </span>
-                  )}
+                  <span className="text-xs sm:text-sm font-bold tracking-tight truncate w-full block">
+                    {getCleanLabel(fmt.label)}
+                  </span>
+                  <span
+                    className={`text-[11px] font-medium mt-0.5 ${
+                      isSelected ? "text-blue-100" : "text-slate-400 dark:text-slate-500"
+                    }`}
+                  >
+                    {size || "MP4"}
+                  </span>
                 </button>
               );
             })}
@@ -70,7 +75,7 @@ export function QualityChips({
 
       {audioFormats.length > 0 && (
         <div>
-          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2.5">
             <Music className="w-3.5 h-3.5" />
             <span>Audio Only</span>
           </div>
@@ -83,7 +88,7 @@ export function QualityChips({
                   key={fmt.format_id}
                   type="button"
                   onClick={() => onSelect(fmt)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-btn border text-sm font-semibold transition-all ${
+                  className={`w-full sm:w-auto flex items-center justify-center sm:justify-start gap-2 px-4 py-2.5 rounded-btn border text-sm font-semibold transition-all ${
                     isSelected
                       ? "border-primary bg-primary text-white shadow-sm ring-2 ring-primary/20"
                       : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-surfaceDark dark:text-slate-200 dark:hover:border-slate-600"

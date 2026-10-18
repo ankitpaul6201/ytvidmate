@@ -4,13 +4,26 @@ import { ArrowLeft, CheckCircle2, Download } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ytvidmate.com";
+
 export const metadata: Metadata = {
   title: "How to Download YouTube Videos in 1080p with Sound (Step-by-Step) | YTVidMate",
   description:
     "Learn why high-resolution YouTube videos download without sound and how to easily save them with merged audio using YTVidMate.",
   alternates: {
-    canonical:
-      "https://ytvidmate.example.com/how-to/download-youtube-video-with-sound",
+    canonical: `${baseUrl}/how-to/download-youtube-video-with-sound`,
+  },
+  openGraph: {
+    title: "How to Download YouTube Videos in 1080p with Sound | YTVidMate",
+    description: "Step-by-step instructions on saving high-definition videos with synced sound.",
+    url: `${baseUrl}/how-to/download-youtube-video-with-sound`,
+    siteName: "YTVidMate",
+    type: "article",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "How to Download YouTube Videos in 1080p with Sound | YTVidMate",
+    description: "Step-by-step instructions on saving high-definition videos with synced sound.",
   },
 };
 

@@ -1,11 +1,24 @@
 /** @type {import('next').NextConfig} */
+const isDev = process.env.NODE_ENV !== "production";
+
+// Next.js development mode requires 'unsafe-eval' for webpack HMR/fast-refresh.
+// Without it the browser blocks React hydration and all event handlers are dead.
+const scriptSrc = isDev
+  ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com"
+  : "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com";
+
+const extraConnect = process.env.NEXT_PUBLIC_API_BASE_URL ? process.env.NEXT_PUBLIC_API_BASE_URL.trim() : "";
+const connectSrc = isDev
+  ? `connect-src 'self' http://localhost:8000 http://127.0.0.1:8000 ws://localhost:3000 ws://localhost:3001 ws://127.0.0.1:3001 https://challenges.cloudflare.com https://*.onrender.com ${extraConnect}`.trim()
+  : `connect-src 'self' https://challenges.cloudflare.com https://*.onrender.com ${extraConnect}`.trim();
+
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+  scriptSrc,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: https:",
   "font-src 'self'",
-  "connect-src 'self' http://localhost:8000 http://127.0.0.1:8000 https://challenges.cloudflare.com",
+  connectSrc,
   "frame-src https://challenges.cloudflare.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",

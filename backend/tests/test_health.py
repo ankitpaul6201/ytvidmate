@@ -20,3 +20,18 @@ def test_health():
     assert data["status"] == "healthy"
     assert data["service"] == "ytvidmate-backend"
     assert "ytdlp_version" in data
+
+
+def test_uptimerobot_health_endpoints():
+    # Test GET /health
+    r_get = client.get("/health")
+    assert r_get.status_code == 200
+    assert r_get.json()["status"] == "healthy"
+
+    # Test HEAD /health
+    r_head = client.head("/health")
+    assert r_head.status_code == 200
+
+    # Test HEAD /
+    r_root_head = client.head("/")
+    assert r_root_head.status_code == 200
