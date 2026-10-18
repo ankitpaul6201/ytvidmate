@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     database_url: SecretStr | None = None
     sentry_dsn: SecretStr | None = None
     proxy_url: SecretStr | None = None
+    youtube_cookies: SecretStr | None = None
     ffmpeg_path: str | None = None
     max_filesize_bytes: int = 2_000_000_000
     max_duration_seconds: int = 10_800

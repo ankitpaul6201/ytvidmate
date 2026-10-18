@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 from collections.abc import Callable
 from typing import Any
@@ -116,6 +117,28 @@ class YtDlpServiceError(Exception):
         self.user_message = user_message
 
 
+def get_cookie_file_path() -> str | None:
+    """
+    Locates or prepares a cookies file to bypass cloud/datacenter IP restrictions.
+    Supports local cookies.txt, /app/cookies.txt, or YOUTUBE_COOKIES environment variable.
+    """
+    for loc in ["cookies.txt", "/app/cookies.txt", os.path.join(settings.tmp_dir, "cookies.txt")]:
+        if os.path.isfile(loc) and os.path.getsize(loc) > 10:
+            return loc
+
+    if settings.youtube_cookies:
+        cookie_file = os.path.join(settings.tmp_dir, "cookies.txt")
+        try:
+            os.makedirs(settings.tmp_dir, exist_ok=True)
+            with open(cookie_file, "w", encoding="utf-8") as f:
+                f.write(settings.youtube_cookies.get_secret_value())
+            return cookie_file
+        except Exception as e:
+            logger.error(f"Failed to write cookies from env: {e}")
+
+    return None
+
+
 def extract_media_info(url: str) -> MediaInfoResponse:
     """
     Extracts metadata and available formats for a validated URL without downloading.
@@ -138,6 +161,10 @@ def extract_media_info(url: str) -> MediaInfoResponse:
         },
     }
 
+    cookie_file = get_cookie_file_path()
+    if cookie_file:
+        ydl_opts["cookiefile"] = cookie_file
+
     if settings.proxy_url:
         ydl_opts["proxy"] = settings.proxy_url.get_secret_value()
 
@@ -157,7 +184,7 @@ def extract_media_info(url: str) -> MediaInfoResponse:
                 fallback_opts = dict(ydl_opts)
                 fallback_opts["extractor_args"] = {
                     "youtube": {
-                        "player_client": ["ios", "mweb", "tv"]
+                        "player_client": ["android", "mweb"]
                     }
                 }
                 with yt_dlp.YoutubeDL(fallback_opts) as ydl:
@@ -478,6 +505,10 @@ def download_media(
 
     if settings.proxy_url:
         ydl_opts["proxy"] = settings.proxy_url.get_secret_value()
+
+    cookie_file = get_cookie_file_path()
+    if cookie_file:
+        ydl_opts["cookiefile"] = cookie_file
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
