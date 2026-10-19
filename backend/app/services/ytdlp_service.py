@@ -340,6 +340,7 @@ def extract_media_info(url: str) -> MediaInfoResponse:
         ) from e
     except (ExtractorError, DownloadError) as e:
         msg = str(e).lower()
+        print(f"[YTVidMate yt-dlp] Initial extraction error: {e}", flush=True)
         info = None
 
         # Fallback 1: If proxy pool has alternative proxies and current attempt failed
@@ -347,20 +348,20 @@ def extract_media_info(url: str) -> MediaInfoResponse:
         if not info and active_proxy and len(proxies_pool) > 1:
             other_proxy = get_active_proxy(exclude={active_proxy})
             if other_proxy and other_proxy != active_proxy:
-                logger.info("Retrying extraction with alternative proxy from pool...")
+                print("[YTVidMate yt-dlp] Retrying extraction with alternative proxy...", flush=True)
                 proxy_opts = dict(ydl_opts)
                 proxy_opts["proxy"] = other_proxy
                 try:
                     with yt_dlp.YoutubeDL(proxy_opts) as ydl:
                         info = ydl.extract_info(clean_url, download=False)
                 except Exception as p_err:
-                    logger.warning(f"Alternative proxy retry failed: {p_err}")
+                    print(f"[YTVidMate yt-dlp] Alternative proxy retry failed: {p_err}", flush=True)
                     info = None
                     msg = f"{msg} {str(p_err).lower()}"
 
         # Fallback 1b: If proxy failed (e.g. 402, tunnel error, transport error, or block), retry direct without proxy
         if not info and active_proxy:
-            logger.info("Proxy request failed; retrying extraction directly without proxy...")
+            print("[YTVidMate yt-dlp] Proxy failed; retrying extraction directly without proxy...", flush=True)
             direct_opts = dict(ydl_opts)
             direct_opts.pop("proxy", None)
             if is_yt:
@@ -372,13 +373,13 @@ def extract_media_info(url: str) -> MediaInfoResponse:
                 with yt_dlp.YoutubeDL(direct_opts) as ydl:
                     info = ydl.extract_info(clean_url, download=False)
             except Exception as d_err:
-                logger.warning(f"Direct extraction retry without proxy failed: {d_err}")
+                print(f"[YTVidMate yt-dlp] Direct extraction retry failed: {d_err}", flush=True)
                 info = None
                 msg = f"{msg} {str(d_err).lower()}"
 
         # Fallback 1c: If YouTube blocked with bot/sign-in challenge, retry explicitly with visionos and android
         if not info and is_yt and any(k in msg for k in ["bot", "reload", "sign in", "api page"]):
-            logger.info("YouTube client challenge detected; retrying cleanly with visionos and android clients...")
+            print("[YTVidMate yt-dlp] YouTube client challenge detected; retrying cleanly with visionos/android...", flush=True)
             yt_clean_opts = dict(ydl_opts)
             yt_clean_opts["extractor_args"] = dict(yt_clean_opts.get("extractor_args", {}))
             yt_clean_opts["extractor_args"]["youtube"] = {
@@ -388,38 +389,37 @@ def extract_media_info(url: str) -> MediaInfoResponse:
                 with yt_dlp.YoutubeDL(yt_clean_opts) as ydl:
                     info = ydl.extract_info(clean_url, download=False)
             except Exception as yt_err:
-                logger.warning(f"VisionOS/Android retry failed: {yt_err}")
+                print(f"[YTVidMate yt-dlp] VisionOS/Android retry failed: {yt_err}", flush=True)
                 info = None
                 msg = f"{msg} {str(yt_err).lower()}"
 
-        # Fallback 2: If YouTube video required sign-in (e.g. age-gated) and cookies exist, try with cookies
-        if not info and is_yt and cookie_file and ("sign in" in msg or "age" in msg):
-            logger.info("Attempting YouTube extraction with authenticated cookies for age-restricted video...")
+        # Fallback 2: If YouTube extraction failed and cookies exist, try with authenticated cookies
+        if not info and is_yt and cookie_file:
+            print("[YTVidMate yt-dlp] Retrying YouTube extraction with authenticated cookies...", flush=True)
             cookie_opts = dict(ydl_opts)
             cookie_opts["cookiefile"] = cookie_file
             try:
                 with yt_dlp.YoutubeDL(cookie_opts) as ydl:
                     info = ydl.extract_info(clean_url, download=False)
             except Exception as c_err:
-                logger.warning(f"Cookie attempt failed: {c_err}")
+                print(f"[YTVidMate yt-dlp] Cookie attempt failed: {c_err}", flush=True)
                 info = None
 
         # Fallback 3: If a non-YouTube extraction failed while using cookies, retry without cookies
         if not info and "cookiefile" in ydl_opts:
-            logger.warning(
-                f"yt-dlp extraction with cookies failed ({e}); retrying anonymously without cookies..."
-            )
+            print("[YTVidMate yt-dlp] Retrying anonymously without cookies...", flush=True)
             retry_opts = dict(ydl_opts)
             del retry_opts["cookiefile"]
             try:
                 with yt_dlp.YoutubeDL(retry_opts) as ydl:
                     info = ydl.extract_info(clean_url, download=False)
             except Exception as retry_err:
-                logger.warning(f"Retry without cookies failed: {retry_err}")
+                print(f"[YTVidMate yt-dlp] Retry without cookies failed: {retry_err}", flush=True)
                 info = None
                 msg = str(retry_err).lower()
 
         if not info:
+            print(f"[YTVidMate yt-dlp] All extraction attempts failed. Final mapped message: {map_ytdlp_error_to_user_message(msg)}", flush=True)
             raise YtDlpServiceError(str(e), map_ytdlp_error_to_user_message(msg)) from e
     except GeoRestrictedError as e:
         raise YtDlpServiceError(
@@ -771,19 +771,19 @@ def download_media(
             if len(proxies_pool) > 1:
                 other_proxy = get_active_proxy(exclude={active_proxy})
                 if other_proxy and other_proxy != active_proxy:
-                    logger.info("Retrying download with alternative proxy from pool...")
+                    print("[YTVidMate yt-dlp] Retrying download with alternative proxy from pool...", flush=True)
                     p_opts = dict(ydl_opts)
                     p_opts["proxy"] = other_proxy
                     try:
                         with yt_dlp.YoutubeDL(p_opts) as ydl:
                             info = ydl.extract_info(clean_url, download=True)
                     except DownloadError as p_err:
-                        logger.warning(f"Alternative proxy download failed: {p_err}")
+                        print(f"[YTVidMate yt-dlp] Alternative proxy download failed: {p_err}", flush=True)
                         lower_msg = f"{lower_msg} {str(p_err).lower()}"
 
             # Fallback directly without proxy if proxy provider is out of quota (402) or unreachable
             if not info:
-                logger.info("Proxy failed or exhausted; retrying download directly without proxy...")
+                print("[YTVidMate yt-dlp] Proxy failed or exhausted; retrying download directly without proxy...", flush=True)
                 direct_opts = dict(ydl_opts)
                 direct_opts.pop("proxy", None)
                 if is_yt:
@@ -796,12 +796,12 @@ def download_media(
                         info = ydl.extract_info(clean_url, download=True)
                 except DownloadError as d_err:
                     msg = str(d_err)
-                    logger.warning(f"Direct download retry failed: {msg}")
+                    print(f"[YTVidMate yt-dlp] Direct download retry failed: {msg}", flush=True)
                     lower_msg = f"{lower_msg} {msg.lower()}"
 
         # Fallback 1c: If YouTube blocked with bot/sign-in challenge during download, retry cleanly with visionos/android
         if not info and is_yt and any(k in lower_msg for k in ["bot", "reload", "sign in", "api page"]):
-            logger.info("YouTube client challenge detected during download; retrying cleanly with visionos/android...")
+            print("[YTVidMate yt-dlp] YouTube client challenge detected during download; retrying cleanly with visionos/android...", flush=True)
             yt_clean_opts = dict(ydl_opts)
             yt_clean_opts["extractor_args"] = dict(yt_clean_opts.get("extractor_args", {}))
             yt_clean_opts["extractor_args"]["youtube"] = {
@@ -812,12 +812,25 @@ def download_media(
                     info = ydl.extract_info(clean_url, download=True)
             except DownloadError as yt_err:
                 msg = str(yt_err)
-                logger.warning(f"VisionOS/Android download retry failed: {msg}")
+                print(f"[YTVidMate yt-dlp] VisionOS/Android download retry failed: {msg}", flush=True)
+                lower_msg = f"{lower_msg} {msg.lower()}"
+
+        # Fallback 2: If YouTube download failed and cookies exist, try with authenticated cookies
+        if not info and is_yt and cookie_file:
+            print("[YTVidMate yt-dlp] Retrying YouTube download with authenticated cookies...", flush=True)
+            cookie_opts = dict(ydl_opts)
+            cookie_opts["cookiefile"] = cookie_file
+            try:
+                with yt_dlp.YoutubeDL(cookie_opts) as ydl:
+                    info = ydl.extract_info(clean_url, download=True)
+            except DownloadError as c_err:
+                msg = str(c_err)
+                print(f"[YTVidMate yt-dlp] Cookie download attempt failed: {msg}", flush=True)
                 lower_msg = f"{lower_msg} {msg.lower()}"
 
         # If download failed with cookies (stale/reload/IP restriction), retry cleanly without cookies
-        if "cookiefile" in ydl_opts:
-            logger.warning("Retrying download anonymously without cookies...")
+        if not info and "cookiefile" in ydl_opts:
+            print("[YTVidMate yt-dlp] Retrying download anonymously without cookies...", flush=True)
             retry_opts = dict(ydl_opts)
             del retry_opts["cookiefile"]
             try:
@@ -825,7 +838,7 @@ def download_media(
                     info = ydl.extract_info(clean_url, download=True)
             except DownloadError as retry_err:
                 msg = str(retry_err)
-                logger.error(f"yt-dlp download retry failed: {msg}")
+                print(f"[YTVidMate yt-dlp] Retry without cookies failed: {msg}", flush=True)
                 lower_retry = msg.lower()
                 if "ffmpeg is not installed" in lower_retry:
                     raise YtDlpServiceError(
@@ -834,7 +847,8 @@ def download_media(
                         "Please configure FFmpeg on the server.",
                     ) from retry_err
                 raise YtDlpServiceError(
-                    msg, map_ytdlp_error_to_user_message(msg)
+                    msg,
+                    map_ytdlp_error_to_user_message(msg),
                 ) from retry_err
         else:
             logger.error(f"yt-dlp download error: {msg}")

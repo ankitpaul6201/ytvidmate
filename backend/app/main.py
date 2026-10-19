@@ -1,3 +1,5 @@
+import logging
+
 import yt_dlp
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -60,20 +62,29 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "/health" not in record.getMessage()
+
+logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
+
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     # Suppress health check logging to keep cloud logs uncluttered from UptimeRobot pings
     is_health = request.url.path in ("/health", "/api/v1/health", "/", "/favicon.ico")
     if not is_health:
-        print(f"[YTVidMate API] >>> {request.method} {request.url.path}")
+        print(f"[YTVidMate API] >>> {request.method} {request.url.path}", flush=True)
 
     response = await call_next(request)
 
     if not is_health:
         print(
-            f"[YTVidMate API] <<< {request.method} {request.url.path} -> {response.status_code}"
+            f"[YTVidMate API] <<< {request.method} {request.url.path} -> {response.status_code}",
+            flush=True,
         )
     return response
+
 
 
 app.include_router(api_v1_router)

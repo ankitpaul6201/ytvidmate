@@ -68,12 +68,14 @@ def get_media_info(payload: InfoRequest, request: Request):
     try:
         return extract_media_info(clean_url)
     except YtDlpServiceError as e:
+        print(f"[YTVidMate ERROR] Info extraction failed for {clean_url}: {e} (user_message: {e.user_message})", flush=True)
         logger.warning(f"Failed to fetch media info for {clean_url}: {e} (user_message: {e.user_message})")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=e.user_message,
         ) from e
     except Exception as e:
+        print(f"[YTVidMate UNEXPECTED ERROR] {clean_url}: {e}", flush=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve video information. Please try again.",
