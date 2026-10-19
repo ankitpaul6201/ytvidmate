@@ -302,7 +302,7 @@ def extract_media_info(url: str) -> MediaInfoResponse:
         "js_runtimes": {"node": {}, "deno": {}},
         "extractor_args": {
             "youtube": {
-                "player_client": ["visionos", "android"]
+                "player_client": ["visionos", "android", "web", "ios"]
             },
             "twitter": {
                 "api": ["syndication", "graphql"]
@@ -312,6 +312,11 @@ def extract_media_info(url: str) -> MediaInfoResponse:
             "Accept-Language": "en-US,en;q=0.9",
         },
     }
+
+    if settings.pot_provider_url:
+        ydl_opts["extractor_args"]["youtubepot-bgutilhttp"] = {
+            "base_url": settings.pot_provider_url
+        }
 
     cookie_file = get_cookie_file_path()
     # YouTube's reliable player clients (visionos, android) do NOT support cookies.
@@ -632,14 +637,18 @@ def download_media(
     ffmpeg_available = is_ffmpeg_available()
 
     is_yt = is_youtube_url(clean_url)
-    common_extractor_args = {
+    common_extractor_args: dict[str, Any] = {
         "youtube": {
-            "player_client": ["visionos", "android"]
+            "player_client": ["visionos", "android", "web", "ios"]
         },
         "twitter": {
             "api": ["syndication", "graphql"]
         },
     }
+    if settings.pot_provider_url:
+        common_extractor_args["youtubepot-bgutilhttp"] = {
+            "base_url": settings.pot_provider_url
+        }
 
     if media_type == "audio":
         if not ffmpeg_available:

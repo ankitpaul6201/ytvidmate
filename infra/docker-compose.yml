@@ -13,6 +13,13 @@ services:
       timeout: 5s
       retries: 5
 
+  pot-provider:
+    image: brainicism/bgutil-ytdlp-pot-provider:latest
+    container_name: ytvidmate-pot-provider
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4416:4416"
+
   backend:
     build:
       context: ../backend
@@ -24,6 +31,7 @@ services:
       - FRONTEND_ORIGIN=http://localhost:3000
       - REDIS_URL=redis://redis:6379/0
       - TMP_DIR=/app/temp
+      - POT_PROVIDER_URL=http://pot-provider:4416
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
@@ -31,6 +39,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      pot-provider:
+        condition: service_started
     security_opt:
       - no-new-privileges:true
 
