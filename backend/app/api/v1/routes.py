@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 from typing import Annotated
@@ -22,6 +23,7 @@ from app.schemas.media import DownloadRequest, InfoRequest, MediaInfoResponse
 from app.services.job_manager import JobQueueFullError, job_manager
 from app.services.ytdlp_service import YtDlpServiceError, extract_media_info
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["Media Downloader"])
 
 
