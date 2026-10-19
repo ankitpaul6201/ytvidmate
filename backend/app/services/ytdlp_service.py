@@ -320,7 +320,7 @@ def extract_media_info(url: str) -> MediaInfoResponse:
         youtube_args["player_client"] = ["android", "visionos", "web", "mweb", "ios"]
     else:
         youtube_args["player_client"] = ["android", "visionos"]
-        youtube_args["player_skip"] = ["webpage", "configs"]
+        youtube_args["player_skip"] = ["webpage"]
 
     ydl_opts: dict[str, Any] = {
         "noplaylist": True,
@@ -373,6 +373,12 @@ def extract_media_info(url: str) -> MediaInfoResponse:
             print("[YTVidMate yt-dlp] Cookie extraction failed; retrying anonymously without cookies...", flush=True)
             no_cookie_opts = dict(ydl_opts)
             no_cookie_opts.pop("cookiefile", None)
+            if is_yt:
+                no_cookie_opts["extractor_args"] = dict(no_cookie_opts.get("extractor_args", {}))
+                no_cookie_opts["extractor_args"]["youtube"] = {
+                    "player_client": ["android", "visionos"],
+                    "player_skip": ["webpage"],
+                }
             try:
                 with yt_dlp.YoutubeDL(no_cookie_opts) as ydl:
                     info = ydl.extract_info(clean_url, download=False)
@@ -421,7 +427,7 @@ def extract_media_info(url: str) -> MediaInfoResponse:
             yt_clean_opts["extractor_args"] = dict(yt_clean_opts.get("extractor_args", {}))
             yt_clean_opts["extractor_args"]["youtube"] = {
                 "player_client": ["android", "visionos"],
-                "player_skip": ["webpage", "configs"],
+                "player_skip": ["webpage"],
             }
             try:
                 with yt_dlp.YoutubeDL(yt_clean_opts) as ydl:
@@ -681,7 +687,7 @@ def download_media(
         youtube_args["player_client"] = ["android", "visionos", "web", "mweb", "ios"]
     else:
         youtube_args["player_client"] = ["android", "visionos"]
-        youtube_args["player_skip"] = ["webpage", "configs"]
+        youtube_args["player_skip"] = ["webpage"]
 
     common_extractor_args: dict[str, Any] = {
         "youtube": youtube_args,
@@ -794,6 +800,12 @@ def download_media(
             print("[YTVidMate yt-dlp] Cookie download failed; retrying anonymously without cookies...", flush=True)
             no_cookie_opts = dict(ydl_opts)
             no_cookie_opts.pop("cookiefile", None)
+            if is_yt:
+                no_cookie_opts["extractor_args"] = dict(no_cookie_opts.get("extractor_args", {}))
+                no_cookie_opts["extractor_args"]["youtube"] = {
+                    "player_client": ["android", "visionos"],
+                    "player_skip": ["webpage"],
+                }
             try:
                 with yt_dlp.YoutubeDL(no_cookie_opts) as ydl:
                     info = ydl.extract_info(clean_url, download=True)
@@ -842,7 +854,7 @@ def download_media(
             yt_clean_opts["extractor_args"] = dict(yt_clean_opts.get("extractor_args", {}))
             yt_clean_opts["extractor_args"]["youtube"] = {
                 "player_client": ["android", "visionos"],
-                "player_skip": ["webpage", "configs"],
+                "player_skip": ["webpage"],
             }
             try:
                 with yt_dlp.YoutubeDL(yt_clean_opts) as ydl:
