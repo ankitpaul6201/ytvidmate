@@ -343,7 +343,7 @@ def extract_media_info(url: str) -> MediaInfoResponse:
 
     if pot_active:
         ydl_opts["extractor_args"]["youtubepot-bgutilhttp"] = {
-            "base_url": pot_url
+            "base_url": [pot_url]
         }
 
     cookie_file = get_cookie_file_path()
@@ -691,7 +691,7 @@ def download_media(
     }
     if pot_active:
         common_extractor_args["youtubepot-bgutilhttp"] = {
-            "base_url": pot_url
+            "base_url": [pot_url]
         }
 
     if media_type == "audio":
