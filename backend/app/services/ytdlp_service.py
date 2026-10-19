@@ -639,6 +639,10 @@ def download_media(
             "http_headers": {
                 "Accept-Language": "en-US,en;q=0.9",
             },
+            "socket_timeout": 30,
+            "retries": 10,
+            "fragment_retries": 10,
+            "concurrent_fragment_downloads": 4,
             "postprocessors": [
                 {
                     "key": "FFmpegExtractAudio",
@@ -671,6 +675,10 @@ def download_media(
             "http_headers": {
                 "Accept-Language": "en-US,en;q=0.9",
             },
+            "socket_timeout": 30,
+            "retries": 10,
+            "fragment_retries": 10,
+            "concurrent_fragment_downloads": 4,
             "quiet": True,
             "no_warnings": True,
         }

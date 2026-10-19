@@ -119,8 +119,16 @@ export function ProgressBar({ jobId, token, onReset, onCancel }: ProgressBarProp
     };
 
     eventSource.onerror = () => {
-      eventSource.close();
-      eventSourceRef.current = null;
+      // Only permanently close if the job reached a terminal state.
+      // Otherwise, allow the browser EventSource to automatically reconnect.
+      if (
+        backendStatusRef.current === "done" ||
+        backendStatusRef.current === "error" ||
+        backendStatusRef.current === "expired"
+      ) {
+        eventSource.close();
+        eventSourceRef.current = null;
+      }
     };
 
     return () => {

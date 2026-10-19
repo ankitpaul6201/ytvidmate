@@ -182,6 +182,9 @@ class JobManager:
                 yield f"data: {data}\n\n"
                 last_percent = job.percent
                 last_status = job.status
+            elif iterations % 10 == 0:
+                # Periodic keep-alive heartbeat comment to prevent proxy idle disconnects (net::ERR_CONNECTION_RESET)
+                yield ": keep-alive\n\n"
 
             if job.status in ("done", "error"):
                 break
