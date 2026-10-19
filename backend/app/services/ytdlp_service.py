@@ -144,9 +144,22 @@ def map_ytdlp_error_to_user_message(raw_error: str) -> str:
     if any(k in msg for k in ["503", "502", "504", "service unavailable", "bad gateway", "temporarily unavailable"]):
         return "The video platform is temporarily unavailable (HTTP 503). Please try again in a few moments."
 
-    # 6. HTTP 429 / Rate limit / bot block
-    if any(k in msg for k in ["429", "too many requests", "rate limit", "sign in to confirm you're not a bot", "bot verification"]):
+    # 6. HTTP 429 / Rate limit
+    if any(k in msg for k in ["429", "too many requests", "rate limit"]):
         return "The video platform is temporarily limiting requests. Please wait a minute before trying again."
+
+    # 6b. Bot block / Cloud Datacenter IP block
+    if any(k in msg for k in [
+        "failed to extract any player response",
+        "all player responses are invalid",
+        "your ip is likely being blocked",
+        "sign in to confirm you're not a bot",
+        "bot verification",
+    ]):
+        return (
+            "YouTube is blocking anonymous downloads from this cloud server's IP address. "
+            "Please configure YOUTUBE_COOKIES or a valid PROXY_URL in the server environment settings."
+        )
 
     # 7. Private video
     if "private" in msg:
@@ -320,12 +333,9 @@ def extract_media_info(url: str) -> MediaInfoResponse:
         }
 
     cookie_file = get_cookie_file_path()
-    # YouTube's reliable player clients (visionos, android) do NOT support cookies.
-    # Passing cookies to yt-dlp forces legacy authed clients (web, tv_downgraded) which fail
-    # on datacenter IPs with 'Failed to extract any player response' or 'The page needs to be reloaded'.
-    # Therefore, cookies are applied to non-YouTube platforms or reserved for YouTube age-restricted fallbacks.
-    if cookie_file and not is_yt:
+    if cookie_file:
         ydl_opts["cookiefile"] = cookie_file
+        print(f"[YTVidMate yt-dlp] Authenticated cookies loaded ({cookie_file})", flush=True)
 
     active_proxy = get_active_proxy()
     if active_proxy:
@@ -750,8 +760,9 @@ def download_media(
         ydl_opts["proxy"] = active_proxy
 
     cookie_file = get_cookie_file_path()
-    if cookie_file and not is_yt:
+    if cookie_file:
         ydl_opts["cookiefile"] = cookie_file
+        print(f"[YTVidMate yt-dlp] Authenticated cookies loaded for download ({cookie_file})", flush=True)
 
     info = None
     try:
