@@ -357,7 +357,7 @@ def extract_media_info(url: str) -> MediaInfoResponse:
         if not info and active_proxy and any(k in msg for k in ["402", "payment required", "proxy", "tunnel"]):
             logger.info("Proxy failed or out of quota; retrying extraction directly without proxy...")
             direct_opts = dict(ydl_opts)
-            direct_opts.pop("proxy", None)
+            direct_opts["proxy"] = ""
             try:
                 with yt_dlp.YoutubeDL(direct_opts) as ydl:
                     info = ydl.extract_info(clean_url, download=False)
@@ -755,7 +755,7 @@ def download_media(
             if not info:
                 logger.info("Proxy failed or exhausted; retrying download directly without proxy...")
                 direct_opts = dict(ydl_opts)
-                direct_opts.pop("proxy", None)
+                direct_opts["proxy"] = ""
                 try:
                     with yt_dlp.YoutubeDL(direct_opts) as ydl:
                         info = ydl.extract_info(clean_url, download=True)
