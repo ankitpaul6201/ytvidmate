@@ -261,4 +261,23 @@ def test_extract_media_info_rate_limited():
         assert "temporarily limiting requests" in exc_info.value.user_message
 
 
+def test_proxy_402_error_mapping():
+    from yt_dlp.utils import DownloadError
+
+    err_msg = (
+        "Unable to download API page: <urlopen error Tunnel connection failed: "
+        "402 Payment Required> (caused by ProxyError('<urlopen error Tunnel connection failed: 402 Payment Required>'))"
+    )
+    with patch("yt_dlp.YoutubeDL") as mock_ydl_cls:
+        mock_instance = MagicMock()
+        mock_instance.extract_info.side_effect = DownloadError(err_msg)
+        mock_ydl_cls.return_value.__enter__.return_value = mock_instance
+
+        with pytest.raises(YtDlpServiceError) as exc_info:
+            extract_media_info("https://www.youtube.com/watch?v=proxyfail")
+        assert "402" in exc_info.value.user_message
+        assert "proxy" in exc_info.value.user_message.lower()
+
+
+
 

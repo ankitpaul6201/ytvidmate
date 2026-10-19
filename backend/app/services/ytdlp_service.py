@@ -171,6 +171,13 @@ def map_ytdlp_error_to_user_message(raw_error: str) -> str:
     if any(k in msg for k in ["no video could be found", "no video formats"]):
         return "No video found at this link. Please check that this post contains a video."
 
+    # 12. Proxy exhausted / 402 Payment Required / Proxy Tunnel failure
+    if any(k in msg for k in ["402", "payment required", "proxyerror", "tunnel connection failed"]):
+        return (
+            "The download proxy service has exhausted its bandwidth or requires renewal (HTTP 402). "
+            "Please check proxy subscription settings."
+        )
+
     # Default fallback
     return "Could not retrieve video from this link. Please verify the URL and try again."
 
@@ -345,6 +352,19 @@ def extract_media_info(url: str) -> MediaInfoResponse:
                     logger.warning(f"Alternative proxy retry failed: {p_err}")
                     info = None
                     msg = f"{msg} {str(p_err).lower()}"
+
+        # Fallback 1b: If proxy failed (e.g. 402 Payment Required or Tunnel error), retry direct without proxy
+        if not info and active_proxy and any(k in msg for k in ["402", "payment required", "proxy", "tunnel"]):
+            logger.info("Proxy failed or out of quota; retrying extraction directly without proxy...")
+            direct_opts = dict(ydl_opts)
+            direct_opts.pop("proxy", None)
+            try:
+                with yt_dlp.YoutubeDL(direct_opts) as ydl:
+                    info = ydl.extract_info(clean_url, download=False)
+            except Exception as d_err:
+                logger.warning(f"Direct extraction retry without proxy failed: {d_err}")
+                info = None
+                msg = f"{msg} {str(d_err).lower()}"
 
         # Fallback 2: If YouTube video required sign-in (e.g. age-gated) and cookies exist, try with cookies
         if not info and is_yt and cookie_file and ("sign in" in msg or "age" in msg):
@@ -714,6 +734,35 @@ def download_media(
                 "FFmpeg is required to merge and process this format. "
                 "Please configure FFmpeg on the server.",
             ) from e
+
+        # Fallback 1: If proxy failed (e.g. 402 Payment Required, ProxyError, Tunnel failure), try alternate or direct
+        proxies_pool = get_proxy_urls()
+        if not info and active_proxy and any(k in lower_msg for k in ["proxy", "402", "tunnel"]):
+            if len(proxies_pool) > 1:
+                other_proxy = get_active_proxy(exclude={active_proxy})
+                if other_proxy and other_proxy != active_proxy:
+                    logger.info("Retrying download with alternative proxy from pool...")
+                    p_opts = dict(ydl_opts)
+                    p_opts["proxy"] = other_proxy
+                    try:
+                        with yt_dlp.YoutubeDL(p_opts) as ydl:
+                            info = ydl.extract_info(clean_url, download=True)
+                    except DownloadError as p_err:
+                        logger.warning(f"Alternative proxy download failed: {p_err}")
+                        lower_msg = f"{lower_msg} {str(p_err).lower()}"
+
+            # Fallback directly without proxy if proxy provider is out of quota (402) or unreachable
+            if not info:
+                logger.info("Proxy failed or exhausted; retrying download directly without proxy...")
+                direct_opts = dict(ydl_opts)
+                direct_opts.pop("proxy", None)
+                try:
+                    with yt_dlp.YoutubeDL(direct_opts) as ydl:
+                        info = ydl.extract_info(clean_url, download=True)
+                except DownloadError as d_err:
+                    msg = str(d_err)
+                    logger.warning(f"Direct download retry failed: {msg}")
+                    lower_msg = f"{lower_msg} {msg.lower()}"
 
         # If download failed with cookies (stale/reload/IP restriction), retry cleanly without cookies
         if "cookiefile" in ydl_opts:
