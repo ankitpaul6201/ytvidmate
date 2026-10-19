@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 
 import yt_dlp
 from fastapi import FastAPI, Request, status
@@ -10,9 +11,24 @@ from app.api.v1.routes import router as api_v1_router
 from app.core.config import settings
 from app.services.ffmpeg_service import find_ffmpeg_path, is_ffmpeg_available
 from app.services.job_manager import JobQueueFullError
+from app.services.pot_service import start_pot_server, stop_pot_server
 
 # Initialize and register FFmpeg path if found in local installations
 find_ffmpeg_path()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        start_pot_server()
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Could not initialize POT server: {e}")
+    yield
+    try:
+        stop_pot_server()
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Could not stop POT server: {e}")
+
 
 app = FastAPI(
     title="YTVidMate API",
@@ -20,6 +36,7 @@ app = FastAPI(
     docs_url=None if settings.app_env == "production" else "/docs",
     redoc_url=None,
     openapi_url=None if settings.app_env == "production" else "/openapi.json",
+    lifespan=lifespan,
 )
 
 # CORS: supports local dev, explicit production origins, and regex for Vercel/Render deployments

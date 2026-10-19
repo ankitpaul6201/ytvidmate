@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.security import safe_name, validate_public_url
 from app.schemas.media import FormatOption, MediaInfoResponse
 from app.services.ffmpeg_service import get_ffmpeg_dir, is_ffmpeg_available
+from app.services.pot_service import get_pot_provider_url, is_pot_server_running
 
 logger = logging.getLogger(__name__)
 
@@ -305,6 +306,16 @@ def extract_media_info(url: str) -> MediaInfoResponse:
     clean_url = canonicalize_social_url(clean_url)
     is_yt = is_youtube_url(clean_url)
 
+    pot_url = get_pot_provider_url()
+    pot_active = is_pot_server_running(pot_url)
+
+    youtube_args: dict[str, Any] = {}
+    if pot_active:
+        youtube_args["player_client"] = ["android", "visionos", "web", "mweb", "ios"]
+    else:
+        youtube_args["player_client"] = ["android", "visionos"]
+        youtube_args["player_skip"] = ["webpage", "configs"]
+
     ydl_opts: dict[str, Any] = {
         "noplaylist": True,
         "quiet": True,
@@ -314,10 +325,7 @@ def extract_media_info(url: str) -> MediaInfoResponse:
         "remote_components": ["ejs:github"],
         "js_runtimes": {"node": {}, "deno": {}},
         "extractor_args": {
-            "youtube": {
-                "player_client": ["android", "visionos"] if not settings.pot_provider_url else ["android", "visionos", "web", "ios"],
-                "player_skip": ["webpage", "configs"],
-            },
+            "youtube": youtube_args,
             "twitter": {
                 "api": ["syndication", "graphql"]
             },
@@ -327,9 +335,9 @@ def extract_media_info(url: str) -> MediaInfoResponse:
         },
     }
 
-    if settings.pot_provider_url:
+    if pot_active:
         ydl_opts["extractor_args"]["youtubepot-bgutilhttp"] = {
-            "base_url": settings.pot_provider_url
+            "base_url": pot_url
         }
 
     cookie_file = get_cookie_file_path()
@@ -670,18 +678,25 @@ def download_media(
     ffmpeg_available = is_ffmpeg_available()
 
     is_yt = is_youtube_url(clean_url)
+    pot_url = get_pot_provider_url()
+    pot_active = is_pot_server_running(pot_url)
+
+    youtube_args: dict[str, Any] = {}
+    if pot_active:
+        youtube_args["player_client"] = ["android", "visionos", "web", "mweb", "ios"]
+    else:
+        youtube_args["player_client"] = ["android", "visionos"]
+        youtube_args["player_skip"] = ["webpage", "configs"]
+
     common_extractor_args: dict[str, Any] = {
-        "youtube": {
-            "player_client": ["android", "visionos"] if not settings.pot_provider_url else ["android", "visionos", "web", "ios"],
-            "player_skip": ["webpage", "configs"],
-        },
+        "youtube": youtube_args,
         "twitter": {
             "api": ["syndication", "graphql"]
         },
     }
-    if settings.pot_provider_url:
+    if pot_active:
         common_extractor_args["youtubepot-bgutilhttp"] = {
-            "base_url": settings.pot_provider_url
+            "base_url": pot_url
         }
 
     if media_type == "audio":
