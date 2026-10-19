@@ -302,7 +302,8 @@ def extract_media_info(url: str) -> MediaInfoResponse:
         "js_runtimes": {"node": {}, "deno": {}},
         "extractor_args": {
             "youtube": {
-                "player_client": ["visionos", "android"] if not settings.pot_provider_url else ["visionos", "android", "web", "ios"]
+                "player_client": ["android", "visionos"] if not settings.pot_provider_url else ["android", "visionos", "web", "ios"],
+                "player_skip": ["webpage", "configs"],
             },
             "twitter": {
                 "api": ["syndication", "graphql"]
@@ -377,19 +378,20 @@ def extract_media_info(url: str) -> MediaInfoResponse:
                 info = None
                 msg = f"{msg} {str(d_err).lower()}"
 
-        # Fallback 1c: If YouTube blocked with bot/sign-in challenge, retry explicitly with visionos and android
-        if not info and is_yt and any(k in msg for k in ["bot", "reload", "sign in", "api page"]):
-            print("[YTVidMate yt-dlp] YouTube client challenge detected; retrying cleanly with visionos/android...", flush=True)
+        # Fallback 1c: If YouTube extraction failed, retry explicitly with player_skip and android/visionos
+        if not info and is_yt:
+            print("[YTVidMate yt-dlp] YouTube extraction failed; retrying with player_skip=webpage,configs and android/visionos...", flush=True)
             yt_clean_opts = dict(ydl_opts)
             yt_clean_opts["extractor_args"] = dict(yt_clean_opts.get("extractor_args", {}))
             yt_clean_opts["extractor_args"]["youtube"] = {
-                "player_client": ["visionos", "android"]
+                "player_client": ["android", "visionos"],
+                "player_skip": ["webpage", "configs"],
             }
             try:
                 with yt_dlp.YoutubeDL(yt_clean_opts) as ydl:
                     info = ydl.extract_info(clean_url, download=False)
             except Exception as yt_err:
-                print(f"[YTVidMate yt-dlp] VisionOS/Android retry failed: {yt_err}", flush=True)
+                print(f"[YTVidMate yt-dlp] VisionOS/Android player_skip retry failed: {yt_err}", flush=True)
                 info = None
                 msg = f"{msg} {str(yt_err).lower()}"
 
@@ -660,7 +662,8 @@ def download_media(
     is_yt = is_youtube_url(clean_url)
     common_extractor_args: dict[str, Any] = {
         "youtube": {
-            "player_client": ["visionos", "android"] if not settings.pot_provider_url else ["visionos", "android", "web", "ios"]
+            "player_client": ["android", "visionos"] if not settings.pot_provider_url else ["android", "visionos", "web", "ios"],
+            "player_skip": ["webpage", "configs"],
         },
         "twitter": {
             "api": ["syndication", "graphql"]
@@ -799,13 +802,14 @@ def download_media(
                     print(f"[YTVidMate yt-dlp] Direct download retry failed: {msg}", flush=True)
                     lower_msg = f"{lower_msg} {msg.lower()}"
 
-        # Fallback 1c: If YouTube blocked with bot/sign-in challenge during download, retry cleanly with visionos/android
-        if not info and is_yt and any(k in lower_msg for k in ["bot", "reload", "sign in", "api page"]):
-            print("[YTVidMate yt-dlp] YouTube client challenge detected during download; retrying cleanly with visionos/android...", flush=True)
+        # Fallback 1c: If YouTube download failed, retry cleanly with player_skip and android/visionos
+        if not info and is_yt:
+            print("[YTVidMate yt-dlp] YouTube download failed; retrying cleanly with player_skip and android/visionos...", flush=True)
             yt_clean_opts = dict(ydl_opts)
             yt_clean_opts["extractor_args"] = dict(yt_clean_opts.get("extractor_args", {}))
             yt_clean_opts["extractor_args"]["youtube"] = {
-                "player_client": ["visionos", "android"]
+                "player_client": ["android", "visionos"],
+                "player_skip": ["webpage", "configs"],
             }
             try:
                 with yt_dlp.YoutubeDL(yt_clean_opts) as ydl:
