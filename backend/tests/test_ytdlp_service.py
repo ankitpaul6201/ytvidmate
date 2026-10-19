@@ -142,3 +142,123 @@ def test_extract_media_info_facebook_formats():
         assert 720 in heights or 1080 in heights
         assert 360 in heights or 480 in heights
 
+
+def test_extract_media_info_members_only():
+    from yt_dlp.utils import DownloadError
+
+    err_msg = "ERROR: [youtube] fzyL44FH2fI: Join this channel to get access to members-only content like this video, and other exclusive perks."
+    with patch("yt_dlp.YoutubeDL") as mock_ydl_cls:
+        mock_instance = MagicMock()
+        mock_instance.extract_info.side_effect = DownloadError(err_msg)
+        mock_ydl_cls.return_value.__enter__.return_value = mock_instance
+
+        with pytest.raises(YtDlpServiceError) as exc_info:
+            extract_media_info("https://www.youtube.com/watch?v=fzyL44FH2fI")
+        assert "Channel membership content cannot be downloaded" in exc_info.value.user_message
+
+
+def test_download_media_members_only(tmp_path):
+    from yt_dlp.utils import DownloadError
+
+    from app.services.ytdlp_service import download_media
+
+    err_msg = "ERROR: [youtube] fzyL44FH2fI: Join this channel to get access to members-only content like this video, and other exclusive perks."
+    with patch("yt_dlp.YoutubeDL") as mock_ydl_cls:
+        mock_instance = MagicMock()
+        mock_instance.extract_info.side_effect = DownloadError(err_msg)
+        mock_ydl_cls.return_value.__enter__.return_value = mock_instance
+
+        with pytest.raises(YtDlpServiceError) as exc_info:
+            download_media(
+                url="https://www.youtube.com/watch?v=fzyL44FH2fI",
+                target_dir=str(tmp_path),
+                media_type="video",
+            )
+        assert "Channel membership content cannot be downloaded" in exc_info.value.user_message
+
+
+def test_extract_media_info_404_not_found():
+    from yt_dlp.utils import DownloadError
+
+    err_msg = "ERROR: [youtube] abc1234: Video unavailable. This video does not exist"
+    with patch("yt_dlp.YoutubeDL") as mock_ydl_cls:
+        mock_instance = MagicMock()
+        mock_instance.extract_info.side_effect = DownloadError(err_msg)
+        mock_ydl_cls.return_value.__enter__.return_value = mock_instance
+
+        with pytest.raises(YtDlpServiceError) as exc_info:
+            extract_media_info("https://www.youtube.com/watch?v=abc1234")
+        assert "Video not found (404)" in exc_info.value.user_message
+
+
+def test_extract_media_info_503_unavailable():
+    from yt_dlp.utils import DownloadError
+
+    err_msg = "HTTP Error 503: Service Temporarily Unavailable"
+    with patch("yt_dlp.YoutubeDL") as mock_ydl_cls:
+        mock_instance = MagicMock()
+        mock_instance.extract_info.side_effect = DownloadError(err_msg)
+        mock_ydl_cls.return_value.__enter__.return_value = mock_instance
+
+        with pytest.raises(YtDlpServiceError) as exc_info:
+            extract_media_info("https://www.youtube.com/watch?v=abc1234")
+        assert "temporarily unavailable (HTTP 503)" in exc_info.value.user_message
+
+
+def test_extract_media_info_unsupported_platform():
+    from yt_dlp.utils import DownloadError
+
+    err_msg = "ERROR: Unsupported URL: https://example.com/page"
+    with patch("yt_dlp.YoutubeDL") as mock_ydl_cls:
+        mock_instance = MagicMock()
+        mock_instance.extract_info.side_effect = DownloadError(err_msg)
+        mock_ydl_cls.return_value.__enter__.return_value = mock_instance
+
+        with pytest.raises(YtDlpServiceError) as exc_info:
+            extract_media_info("https://example.com/page")
+        assert "platform or website is not supported" in exc_info.value.user_message
+
+
+def test_extract_media_info_live_stream():
+    from yt_dlp.utils import DownloadError
+
+    err_msg = "ERROR: [youtube] live123: This video is a live stream. Recordings are not available."
+    with patch("yt_dlp.YoutubeDL") as mock_ydl_cls:
+        mock_instance = MagicMock()
+        mock_instance.extract_info.side_effect = DownloadError(err_msg)
+        mock_ydl_cls.return_value.__enter__.return_value = mock_instance
+
+        with pytest.raises(YtDlpServiceError) as exc_info:
+            extract_media_info("https://www.youtube.com/watch?v=live123")
+        assert "Live streams cannot be downloaded" in exc_info.value.user_message
+
+
+def test_extract_media_info_age_restricted():
+    from yt_dlp.utils import DownloadError
+
+    err_msg = "ERROR: [youtube] age123: Sign in to confirm your age. This video may be inappropriate for some users."
+    with patch("yt_dlp.YoutubeDL") as mock_ydl_cls:
+        mock_instance = MagicMock()
+        mock_instance.extract_info.side_effect = DownloadError(err_msg)
+        mock_ydl_cls.return_value.__enter__.return_value = mock_instance
+
+        with pytest.raises(YtDlpServiceError) as exc_info:
+            extract_media_info("https://www.youtube.com/watch?v=age123")
+        assert "website has no login function" in exc_info.value.user_message
+
+
+def test_extract_media_info_rate_limited():
+    from yt_dlp.utils import DownloadError
+
+    err_msg = "HTTP Error 429: Too Many Requests"
+    with patch("yt_dlp.YoutubeDL") as mock_ydl_cls:
+        mock_instance = MagicMock()
+        mock_instance.extract_info.side_effect = DownloadError(err_msg)
+        mock_ydl_cls.return_value.__enter__.return_value = mock_instance
+
+        with pytest.raises(YtDlpServiceError) as exc_info:
+            extract_media_info("https://www.youtube.com/watch?v=rate123")
+        assert "temporarily limiting requests" in exc_info.value.user_message
+
+
+

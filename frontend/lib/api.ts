@@ -90,11 +90,22 @@ export async function fetchMediaInfo(url: string): Promise<MediaInfoResponse> {
         (lower.includes("hostname") ||
           lower.includes("resolv") ||
           lower.includes("scheme") ||
-          lower.includes("url") ||
           lower.includes("field required") ||
           lower.includes("unprocessable")))
     ) {
       errorMsg = "Please enter or paste a valid video URL.";
+    } else if (res.status === 503) {
+      if (errorMsg === "Please enter or paste a valid video URL." || !errorMsg) {
+        errorMsg = "The server is temporarily unavailable (503). Please try again in a few moments.";
+      }
+    } else if (res.status === 429) {
+      if (errorMsg === "Please enter or paste a valid video URL." || !errorMsg) {
+        errorMsg = "Too many requests. Please wait a minute before trying again.";
+      }
+    } else if (res.status === 404) {
+      if (errorMsg === "Please enter or paste a valid video URL." || !errorMsg) {
+        errorMsg = "Video not found (404). This video may have been deleted, removed, or the link is incorrect.";
+      }
     }
 
     console.warn("[YTVidMate] Backend error:", errorMsg);

@@ -114,7 +114,7 @@ export function UrlInput({ onFetch, isLoading, value, onChange }: UrlInputProps)
     }
 
     if (!isValidVideoUrl(trimmed)) {
-      setFeedbackNotice("Please enter or paste a valid video URL (e.g. https://www.youtube.com/watch?v=...).");
+      setFeedbackNotice("Please enter a valid video link (e.g., https://www.youtube.com/watch?v=...). Search terms or plain text are not supported.");
       setIsShaking(true);
       setTimeout(() => setIsShaking(false), 500);
       inputRef.current?.focus();
@@ -150,7 +150,7 @@ export function UrlInput({ onFetch, isLoading, value, onChange }: UrlInputProps)
       const trimmed = text.trim();
       if (!isValidVideoUrl(trimmed)) {
         updateUrl(trimmed);
-        setFeedbackNotice("Please enter or paste a valid video URL (e.g. https://www.youtube.com/watch?v=...).");
+        setFeedbackNotice("Please enter a valid video link (e.g., https://www.youtube.com/watch?v=...). Search terms or plain text are not supported.");
         setIsShaking(true);
         setTimeout(() => setIsShaking(false), 500);
         return;

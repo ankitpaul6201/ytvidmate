@@ -117,6 +117,65 @@ class YtDlpServiceError(Exception):
         self.user_message = user_message
 
 
+def map_ytdlp_error_to_user_message(raw_error: str) -> str:
+    """Translates raw yt-dlp error output into clear, friendly, user-facing guidance."""
+    msg = (raw_error or "").lower()
+
+    # 1. Channel membership / paywalls
+    if any(k in msg for k in ["members-only", "join this channel", "members only", "membership"]):
+        return (
+            "Channel membership content cannot be downloaded. "
+            "YTVidMate only supports publicly accessible videos."
+        )
+
+    # 2. DRM / Protected
+    if "drm" in msg or "protected content" in msg:
+        return "Protected content (DRM) cannot be downloaded."
+
+    # 3. Live stream in progress
+    if any(k in msg for k in ["is a live stream", "live event", "live stream recording"]):
+        return "Live streams cannot be downloaded."
+
+    # 4. HTTP 404 / Video removed or not found
+    if any(k in msg for k in ["404", "not found", "does not exist", "video unavailable", "removed by the uploader"]):
+        return "Video not found (404). This video may have been deleted, removed, or the link is incorrect."
+
+    # 5. HTTP 503 / 502 / Server down / temporarily unavailable
+    if any(k in msg for k in ["503", "502", "504", "service unavailable", "bad gateway", "temporarily unavailable"]):
+        return "The video platform is temporarily unavailable (HTTP 503). Please try again in a few moments."
+
+    # 6. HTTP 429 / Rate limit / bot block
+    if any(k in msg for k in ["429", "too many requests", "rate limit", "sign in to confirm you're not a bot", "bot verification"]):
+        return "The video platform is temporarily limiting requests. Please wait a minute before trying again."
+
+    # 7. Private video
+    if "private" in msg:
+        return "This video is private and cannot be accessed. Only public videos can be downloaded."
+
+    # 8. Age-restricted / Login required
+    if any(k in msg for k in ["age-restricted", "confirm your age", "sign in to view", "requires authentication"]):
+        return "Age-restricted videos cannot be downloaded because this website has no login function."
+
+    # 9. Geo-restricted / Blocked in country
+    if any(k in msg for k in ["not available in your country", "blocked in your country", "geo-restricted", "geographic"]):
+        return "This video is not available in our server's region due to country restrictions."
+
+    # 10. Unsupported website / platform
+    if any(k in msg for k in ["unsupported url", "no suitable extractor"]):
+        return (
+            "This platform or website is not supported. "
+            "Please paste a link from YouTube, Instagram, Facebook, TikTok, Twitter/X, or Pinterest."
+        )
+
+    # 11. No video found in post (e.g. text or image post)
+    if any(k in msg for k in ["no video could be found", "no video formats"]):
+        return "No video found at this link. Please check that this post contains a video."
+
+    # Default fallback
+    return "Could not retrieve video from this link. Please verify the URL and try again."
+
+
+
 class YtDlpQuietLogger:
     """
     Prevents yt-dlp from dumping raw error stack traces to sys.stderr on intermediate attempts.
@@ -285,6 +344,7 @@ def extract_media_info(url: str) -> MediaInfoResponse:
                 except Exception as p_err:
                     logger.warning(f"Alternative proxy retry failed: {p_err}")
                     info = None
+                    msg = f"{msg} {str(p_err).lower()}"
 
         # Fallback 2: If YouTube video required sign-in (e.g. age-gated) and cookies exist, try with cookies
         if not info and is_yt and cookie_file and ("sign in" in msg or "age" in msg):
@@ -314,25 +374,17 @@ def extract_media_info(url: str) -> MediaInfoResponse:
                 msg = str(retry_err).lower()
 
         if not info:
-            if "drm" in msg or "protected" in msg:
-                raise YtDlpServiceError(
-                    str(e), "Protected content (DRM) can't be downloaded."
-                ) from e
-            if "private" in msg or "unavailable" in msg or "removed" in msg:
-                raise YtDlpServiceError(
-                    str(e), "This video is private or no longer available."
-                ) from e
-            if "no video could be found" in msg or "no video formats" in msg:
-                raise YtDlpServiceError(
-                    str(e), "No video found at this link. Please check that this post contains a video."
-                ) from e
-            raise YtDlpServiceError(
-                str(e), "Could not retrieve video from this link. Please verify the URL."
-            ) from e
+            raise YtDlpServiceError(str(e), map_ytdlp_error_to_user_message(msg)) from e
+    except GeoRestrictedError as e:
+        raise YtDlpServiceError(
+            str(e), "This video is not available in our server's region due to country restrictions."
+        ) from e
+    except YtDlpServiceError:
+        raise
     except Exception as e:
         logger.error(f"Unexpected extraction error: {e}", exc_info=True)
         raise YtDlpServiceError(
-            str(e), "Failed to fetch video information. Please try again."
+            str(e), map_ytdlp_error_to_user_message(str(e))
         ) from e
 
     if not info:
@@ -647,6 +699,14 @@ def download_media(
     except DownloadError as e:
         msg = str(e)
         logger.warning(f"yt-dlp download attempt failed: {msg}")
+        lower_msg = msg.lower()
+        if "ffmpeg is not installed" in lower_msg:
+            raise YtDlpServiceError(
+                msg,
+                "FFmpeg is required to merge and process this format. "
+                "Please configure FFmpeg on the server.",
+            ) from e
+
         # If download failed with cookies (stale/reload/IP restriction), retry cleanly without cookies
         if "cookiefile" in ydl_opts:
             logger.warning("Retrying download anonymously without cookies...")
@@ -658,25 +718,20 @@ def download_media(
             except DownloadError as retry_err:
                 msg = str(retry_err)
                 logger.error(f"yt-dlp download retry failed: {msg}")
-                if "ffmpeg is not installed" in msg.lower():
+                lower_retry = msg.lower()
+                if "ffmpeg is not installed" in lower_retry:
                     raise YtDlpServiceError(
                         msg,
                         "FFmpeg is required to merge and process this format. "
                         "Please configure FFmpeg on the server.",
                     ) from retry_err
                 raise YtDlpServiceError(
-                    msg, "Failed to download media. Please try again."
+                    msg, map_ytdlp_error_to_user_message(msg)
                 ) from retry_err
         else:
             logger.error(f"yt-dlp download error: {msg}")
-            if "ffmpeg is not installed" in msg.lower():
-                raise YtDlpServiceError(
-                    msg,
-                    "FFmpeg is required to merge and process this format. "
-                    "Please configure FFmpeg on the server.",
-                ) from e
             raise YtDlpServiceError(
-                msg, "Failed to download media. Please try again."
+                msg, map_ytdlp_error_to_user_message(msg)
             ) from e
 
     except YtDlpServiceError:
