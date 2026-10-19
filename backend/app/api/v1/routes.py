@@ -66,6 +66,7 @@ def get_media_info(payload: InfoRequest, request: Request):
     try:
         return extract_media_info(clean_url)
     except YtDlpServiceError as e:
+        logger.warning(f"Failed to fetch media info for {clean_url}: {e} (user_message: {e.user_message})")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=e.user_message,

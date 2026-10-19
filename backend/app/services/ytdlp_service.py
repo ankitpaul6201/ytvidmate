@@ -302,7 +302,7 @@ def extract_media_info(url: str) -> MediaInfoResponse:
         "js_runtimes": {"node": {}, "deno": {}},
         "extractor_args": {
             "youtube": {
-                "player_client": ["visionos", "android", "web", "ios"]
+                "player_client": ["visionos", "android"] if not settings.pot_provider_url else ["visionos", "android", "web", "ios"]
             },
             "twitter": {
                 "api": ["syndication", "graphql"]
@@ -358,11 +358,16 @@ def extract_media_info(url: str) -> MediaInfoResponse:
                     info = None
                     msg = f"{msg} {str(p_err).lower()}"
 
-        # Fallback 1b: If proxy failed (e.g. 402 Payment Required or Tunnel error), retry direct without proxy
-        if not info and active_proxy and any(k in msg for k in ["402", "payment required", "proxy", "tunnel"]):
-            logger.info("Proxy failed or out of quota; retrying extraction directly without proxy...")
+        # Fallback 1b: If proxy failed (e.g. 402, tunnel error, transport error, or block), retry direct without proxy
+        if not info and active_proxy:
+            logger.info("Proxy request failed; retrying extraction directly without proxy...")
             direct_opts = dict(ydl_opts)
-            direct_opts["proxy"] = ""
+            direct_opts.pop("proxy", None)
+            if is_yt:
+                direct_opts["extractor_args"] = dict(direct_opts.get("extractor_args", {}))
+                direct_opts["extractor_args"]["youtube"] = {
+                    "player_client": ["visionos", "android"]
+                }
             try:
                 with yt_dlp.YoutubeDL(direct_opts) as ydl:
                     info = ydl.extract_info(clean_url, download=False)
@@ -370,6 +375,22 @@ def extract_media_info(url: str) -> MediaInfoResponse:
                 logger.warning(f"Direct extraction retry without proxy failed: {d_err}")
                 info = None
                 msg = f"{msg} {str(d_err).lower()}"
+
+        # Fallback 1c: If YouTube blocked with bot/sign-in challenge, retry explicitly with visionos and android
+        if not info and is_yt and any(k in msg for k in ["bot", "reload", "sign in", "api page"]):
+            logger.info("YouTube client challenge detected; retrying cleanly with visionos and android clients...")
+            yt_clean_opts = dict(ydl_opts)
+            yt_clean_opts["extractor_args"] = dict(yt_clean_opts.get("extractor_args", {}))
+            yt_clean_opts["extractor_args"]["youtube"] = {
+                "player_client": ["visionos", "android"]
+            }
+            try:
+                with yt_dlp.YoutubeDL(yt_clean_opts) as ydl:
+                    info = ydl.extract_info(clean_url, download=False)
+            except Exception as yt_err:
+                logger.warning(f"VisionOS/Android retry failed: {yt_err}")
+                info = None
+                msg = f"{msg} {str(yt_err).lower()}"
 
         # Fallback 2: If YouTube video required sign-in (e.g. age-gated) and cookies exist, try with cookies
         if not info and is_yt and cookie_file and ("sign in" in msg or "age" in msg):
@@ -639,7 +660,7 @@ def download_media(
     is_yt = is_youtube_url(clean_url)
     common_extractor_args: dict[str, Any] = {
         "youtube": {
-            "player_client": ["visionos", "android", "web", "ios"]
+            "player_client": ["visionos", "android"] if not settings.pot_provider_url else ["visionos", "android", "web", "ios"]
         },
         "twitter": {
             "api": ["syndication", "graphql"]
@@ -744,9 +765,9 @@ def download_media(
                 "Please configure FFmpeg on the server.",
             ) from e
 
-        # Fallback 1: If proxy failed (e.g. 402 Payment Required, ProxyError, Tunnel failure), try alternate or direct
+        # Fallback 1: If proxy failed (e.g. 402, proxy/tunnel error, transport error), try alternate or direct
         proxies_pool = get_proxy_urls()
-        if not info and active_proxy and any(k in lower_msg for k in ["proxy", "402", "tunnel"]):
+        if not info and active_proxy:
             if len(proxies_pool) > 1:
                 other_proxy = get_active_proxy(exclude={active_proxy})
                 if other_proxy and other_proxy != active_proxy:
@@ -764,7 +785,12 @@ def download_media(
             if not info:
                 logger.info("Proxy failed or exhausted; retrying download directly without proxy...")
                 direct_opts = dict(ydl_opts)
-                direct_opts["proxy"] = ""
+                direct_opts.pop("proxy", None)
+                if is_yt:
+                    direct_opts["extractor_args"] = dict(direct_opts.get("extractor_args", {}))
+                    direct_opts["extractor_args"]["youtube"] = {
+                        "player_client": ["visionos", "android"]
+                    }
                 try:
                     with yt_dlp.YoutubeDL(direct_opts) as ydl:
                         info = ydl.extract_info(clean_url, download=True)
@@ -772,6 +798,22 @@ def download_media(
                     msg = str(d_err)
                     logger.warning(f"Direct download retry failed: {msg}")
                     lower_msg = f"{lower_msg} {msg.lower()}"
+
+        # Fallback 1c: If YouTube blocked with bot/sign-in challenge during download, retry cleanly with visionos/android
+        if not info and is_yt and any(k in lower_msg for k in ["bot", "reload", "sign in", "api page"]):
+            logger.info("YouTube client challenge detected during download; retrying cleanly with visionos/android...")
+            yt_clean_opts = dict(ydl_opts)
+            yt_clean_opts["extractor_args"] = dict(yt_clean_opts.get("extractor_args", {}))
+            yt_clean_opts["extractor_args"]["youtube"] = {
+                "player_client": ["visionos", "android"]
+            }
+            try:
+                with yt_dlp.YoutubeDL(yt_clean_opts) as ydl:
+                    info = ydl.extract_info(clean_url, download=True)
+            except DownloadError as yt_err:
+                msg = str(yt_err)
+                logger.warning(f"VisionOS/Android download retry failed: {msg}")
+                lower_msg = f"{lower_msg} {msg.lower()}"
 
         # If download failed with cookies (stale/reload/IP restriction), retry cleanly without cookies
         if "cookiefile" in ydl_opts:
